@@ -1,0 +1,16 @@
+name: cami_env_py2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy
+  - matplotlib
+  - biopython
+  - biom-format
+  - samtools
+  - joblib
+  - scikit-learn
+  - ete3
+  - ncurses

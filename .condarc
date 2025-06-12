@@ -1,0 +1,8 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+channel_priority: strict
+# optional global mamba opts
+env_prompt: '({name})'
+auto_activate_base: false

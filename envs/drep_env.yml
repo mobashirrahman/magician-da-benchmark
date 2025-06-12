@@ -1,0 +1,9 @@
+name: drep_env
+channels: 
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - drep=3.2.0
+  - mummer=3.23
+  - pandas=1.5.*

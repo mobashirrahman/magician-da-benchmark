@@ -1,0 +1,532 @@
+#shell.executable("/bin/bash")
+#shell.prefix("source $HOME/.bashrc; ")
+
+import pathlib
+
+import snakemake_helpers as helpers
+
+# required: tab-separated file with genbank path to abundance in sample mapping
+SAMPLE_FILE = config['samples_file']
+with open(SAMPLE_FILE, "r") as samples_file:
+    SAMPLES = samples_file.readline().strip().split("\t")[2:] # from the header, take all but the first two column names
+
+# Directory containing CAMISIM, change as appropriate - make variable again?
+CAMISIM_DIR = config["camisim_path"]
+#CAMISIM_DIR = "/CAMISIM"
+
+# package base dir
+MAGICIAN_DIR = pathlib.Path(workflow.basedir).parent
+
+# if config entries do not exist, set defaults
+PROFILE_TYPE = config.get("profile_type", "mbarc")
+PROFILE_NAME = config.get("profile_name", False)
+READLENGTH = config.get("readlength", False)
+INSERT_SIZE = config.get("insert_size", 270)
+
+rule complete_qc:
+    input:
+        fastqc = expand("qc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES),
+        checkm_txt = expand("checkm/{sample}.checkm.txt", sample=SAMPLES),
+        checkm_dir = expand("checkm/{sample}.checkm", sample=SAMPLES),
+        stat_files = expand("stats/{sample}.tsv", sample=SAMPLES),
+        drep_all = expand("drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf", sample=SAMPLES)
+
+rule all_camisim:
+    input:
+        all_r1 = expand('camisim_out/{sample}/simulated_{sample}_r1.gz', sample=SAMPLES),
+        all_r2 = expand('camisim_out/{sample}/simulated_{sample}_r2.gz', sample=SAMPLES)
+
+rule clean_all_camisim:
+    input: expand("camisim_old_runs/{sample}/{sample}", sample=SAMPLES)
+
+rule all_qc:
+        input: expand("qc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES)
+
+rule all_metaspades:
+    input: expand("metaspades/{sample}/{sample}_scaffolds.fasta", sample=SAMPLES)
+
+rule make_mags:
+    input: expand("metabat2/{sample}/{sample}.bin", sample=SAMPLES)
+
+rule all_checkm:
+    input:
+        txt=expand("checkm/{sample}.checkm.txt", sample=SAMPLES),
+        dir=expand("checkm/{sample}.checkm", sample=SAMPLES)
+
+rule all_stats:
+    input:
+        stat_files = expand("stats/{sample}.tsv", sample=SAMPLES)
+
+rule pool_bins_and_refs_each_sample:
+    input:
+        merged=expand("bins_all/{sample}/{sample}", sample=SAMPLES)
+        
+rule all_drep:
+    input: 
+        test = expand("drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf", sample=SAMPLES)
+
+rule clean_all_drep:
+    input:
+        all_checks = expand("drep_old/{sample}/{sample}_move_check", sample=SAMPLES)
+
+rule all_summaries:
+    input:
+        all_summaries = expand("summaries/general_summary_{sample}.xlsx", sample=SAMPLES)
+
+rule all_bin_summaries:
+    input:
+        all_bin_summaries = expand("summaries/bin_summary_{sample}.xlsx", sample=SAMPLES)
+
+# Extract and write metadata
+rule camisim_metafiles:
+    params:
+        sample_col = "{sample}",
+        samplefile = SAMPLE_FILE
+    output:
+        camisim_metafile = 'camisim_configfiles/metadata_{sample}',
+        camisim_genomefile = 'camisim_configfiles/id_to_genome_file_{sample}',
+        camisim_abundance = 'camisim_configfiles/id_to_distributions_{sample}',
+        fasta_checkfile = 'camisim_fasta_{sample}/{sample}_checkfile'
+    #conda: pathlib.Path(workflow.current_basedir).parent / "requirements.yml"
+    shell:
+        '''
+        python3 {MAGICIAN_DIR}/camisim_setup/extract_camisim_data.py \
+        {params.samplefile} {params.sample_col}
+        touch camisim_fasta_{params.sample_col}/{params.sample_col}_checkfile
+        '''
+
+rule get_samtools_path:
+    output:
+        samtools_path = temp("samtools_path.txt")
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "cami_python2_new_env.yml"
+    shell:
+        """
+        which samtools > {output.samtools_path}
+        """
+
+
+# Write configuration file for Camisim
+rule camisim_configfiles:
+    input:
+        camisim_metafile = 'camisim_configfiles/metadata_{sample}',
+        camisim_genomefile = 'camisim_configfiles/id_to_genome_file_{sample}',
+        camisim_abundance = 'camisim_configfiles/id_to_distributions_{sample}',
+        samtools_path = "samtools_path.txt"
+    params:
+        camisim_dir = CAMISIM_DIR,
+        #coverage = 20,
+        samplesize = 2.5,
+        profile_type = PROFILE_TYPE,
+        profile_base = "" if not PROFILE_NAME \
+            else "--profile_basename '{}'".format(pathlib.Path(PROFILE_NAME).stem),
+        profile_readlength = "" if not READLENGTH \
+            else "--profile_readlength {}".format(READLENGTH),
+        insert_size = INSERT_SIZE,
+        errorprofile_dir = str(pathlib.Path(CAMISIM_DIR) / "tools" / "art_illumina-2.3.6" / "profiles") if not PROFILE_NAME \
+            else pathlib.Path(PROFILE_NAME).parent
+    output:
+        camisim_configfile = 'camisim_config_{sample}.ini'
+    #conda: pathlib.Path(workflow.current_basedir).parent / "requirements.yml"
+    shell:
+         '''
+         python3 {MAGICIAN_DIR}/camisim_setup/generate_camisim_config.py \
+         {params.camisim_dir} {input.camisim_metafile} {input.camisim_genomefile} -f {output.camisim_configfile} \
+         -o "camisim_out/{wildcards.sample}" -a {input.camisim_abundance} -s {params.samplesize} \
+         --insert_size {params.insert_size} \
+         --read_sim "art" \
+         --read_sim_path "{params.camisim_dir}/tools/art_illumina-2.3.6/art_illumina" \
+         --samtools_path "{input.samtools_path}" \
+         --error_profile "{params.errorprofile_dir}" \
+         --art_profile_type {params.profile_type} {params.profile_base} {params.profile_readlength}
+         '''
+
+# Run CAMISIM on sample, then make one file each with pooled forward & reverse reads
+rule run_camisim:
+    input:
+        camisim_configfile = 'camisim_config_{sample}.ini'
+    output:
+        concat_results_r1 = 'camisim_out/{sample}/simulated_{sample}_r1.gz',
+        concat_results_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
+     #singularity: "singularity-containers/camisim-py2-test.sif" # testing
+    #singularity: "docker://cami/camisim:latest"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "cami_python2_new_env.yml"
+    #conda: "cami_snakemake_2"
+    shell:
+        '''
+        python2 {CAMISIM_DIR}/metagenomesimulation.py {input.camisim_configfile}
+        cat camisim_out/{wildcards.sample}/*/reads/*1.fq.gz > {output.concat_results_r1}
+        cat camisim_out/{wildcards.sample}/*/reads/*2.fq.gz > {output.concat_results_r2}
+        '''
+
+# Move CAMISIM result files, clear out genome locations and metadata
+rule cleanup_camisim:
+    input:
+        camisim_resultdir = "camisim_out/{sample}",
+        camisim_result_check = "camisim_out/{sample}/simulated_{sample}_r1.gz"  # check if this has updated
+    output:
+        camisim_check_old = "camisim_old_runs/{sample}/{sample}"
+    shell: '''
+        mv {input.camisim_resultdir}/*_*_sample_0 camisim_old_runs/{wildcards.sample}
+        rm {input.camisim_resultdir}/internal/genome_locations.tsv
+        rm {input.camisim_resultdir}/internal/meta_data.tsv
+        touch camisim_old_runs/{wildcards.sample}/{wildcards.sample}
+        '''
+
+# Run fastQC on forward/reverse reads
+rule fastqc:
+    input:
+          reads_r1 = 'camisim_out/{sample}/simulated_{sample}_r1.gz',
+          reads_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
+    output:
+          qc_r1 = 'qc/{sample}/simulated_{sample}_r1_fastqc.html',
+          qc_r2 = 'qc/{sample}/simulated_{sample}_r2_fastqc.html'
+    #singularity: "docker://biocontainers/fastqc"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "read_qc.yml"
+    shell:
+         '''
+         fastqc -o qc/{wildcards.sample} {input.reads_r1} {input.reads_r2}
+         '''
+# ### ADAPTED FROM CODE BY PATRICK MUNK ###
+# Quality and adapter trim the raw reads
+rule trim_bbduk:
+    input:
+        R1="camisim_out/{sample}/simulated_{sample}_r1.gz",
+        R2="camisim_out/{sample}/simulated_{sample}_r2.gz"
+    output:
+        R1="trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
+        R2="trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
+        RS="trimReads/{sample}/simulated_{sample}_S.trim.fq.gz"
+    threads: 8
+    #threads: 5
+    #singularity: "docker://staphb/bbtools"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "bbtools_newer.yml"
+    shell: # specify quality score offset if needed - wgsim offset assumed to be 33
+        '''
+        bbduk.sh -Xmx12g in={input.R1} in2={input.R2} out={output.R1} out2={output.R2} outs={output.RS} overwrite=t \
+        minlen=50 qtrim=r trimq=20 k=19 mink=11 threads={threads} ref=adapters ktrim=n
+        '''
+
+
+# Do metagenomic assembly using metaSpades
+rule asm_metaspades:
+        input:
+            R1="trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
+            R2="trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
+            RS="trimReads/{sample}/simulated_{sample}_S.trim.fq.gz"
+        output:
+            fa="metaspades/{sample}/{sample}_scaffolds.fasta"
+        params:
+            dir="metaspades/{sample}",
+            asm="metaspades/{sample}/scaffolds.fasta",
+            #time="time/metaspades/{sample}.time"
+        log:
+            out="logs/asm_metaspades/{sample}.out",
+            err="logs/asm_metaspades/{sample}.err"
+        benchmark:
+            "benchmarks/{sample}.metaspades.bm.txt"
+        threads: 20
+        #threads: 7
+        #singularity: "docker://staphb/spades:3.14.0"
+        conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "spades_env.yml"
+        shell: # specify phred offset if needed - assumed to be 33 for wgsim reads w/o error profile
+                '''
+               
+                metaspades.py -t {threads} -1 {input.R1} -2 {input.R2} -s {input.RS} \
+                -o {params.dir} -k 27,47,67,87,107,127 --memory 120 2> {log.err} 1> {log.out}
+            mv {params.asm} {output.fa}
+                '''
+        #mkdir -p "time/metaspades"
+        #/usr/bin/time -v -o {params.time} 
+# Clean up after metaspades
+# Remove leftover files and compress final output
+# Should only run when final metaspades output and some junk is present
+rule cleanup_metaspades:
+    input:
+        dir="metaspades/{sample}",
+        scaf="metaspades/{sample}/simulated_{sample}.scaf.min1000.fa",
+        junk="metaspades/{sample}/contigs.fasta"
+    output:
+        cleanup="metaspades/{sample}/cleanup.txt"
+    threads: 8
+    #threads: 5
+    shell:
+                '''
+        rm -f {input.dir}/contigs.paths
+        rm -f {input.dir}/scaffolds.paths
+        rm -f {input.dir}/first_pe_contigs.fasta
+        rm -f {input.dir}/before_rr.fasta
+        rm -rf {input.dir}/K27 {input.dir}/K47 {input.dir}/K67 {input.dir}/K87 {input.dir}/K107 {input.dir}/K127 {input.dir}/corrected
+        rm -f {input.junk}
+        cd {input.dir} && pigz -q -p {threads} *.fasta *.fastg *.gfa && cd ../..
+        touch {output.cleanup}
+                '''
+
+# Remove small scaffolds and add sample prefix to fasta header
+rule filter_scafs:
+    input:
+        asm="metaspades/{sample}/{sample}_scaffolds.fasta"
+    output:
+        asm="metaspades/{sample}/simulated_{sample}.scaf.min1000.fa"
+    params:
+        pfx="{sample}" 
+    threads: 1
+    #singularity: "docker://staphb/bbtools"
+    #singularity: "singularity-containers/metabat-old-bbtools.sif"
+    #singularity: "shub://KatSteinke/magician-singularity-containers:bbmap_from_metabat"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "bbmap_env.yml"
+    shell:
+        '''
+        
+        rename.sh ow=t fastawrap=60 minscaf=1000 prefix={params.pfx} addprefix=t in={input.asm} out={output.asm}
+        '''
+
+# Map reads to assembly to get coverage and depth
+rule map_bbmap:
+    input:
+        R1="trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
+        R2="trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
+        fa="metaspades/{sample}/simulated_{sample}.scaf.min1000.fa"
+    output:
+        outsam="mapped/{sample}.sam",
+        outbam="mapped/{sample}.sort.bam",
+        dep="coverage/{sample}.txt"
+    log:
+        out="logs/map_bbmap/{sample}.out",
+        err="logs/map_bbmap/{sample}.err"
+
+    threads: 20
+    #threads: 7
+    # TODO: create bbmap/samtools/metabat container! Based on either bbmap or samtools container
+    #singularity: "/home/kat/Documents/Uni/fall20/paper/singularity-imgs/metabat-test.sif"
+    #singularity: "singularity-containers/metabat-old-bbtools.sif"
+    #singularity: "shub://KatSteinke/magician-singularity-containers:bbmap_from_metabat"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "bbmap_env.yml"
+    shell:
+            '''
+            
+            mkdir -p logs/map_bbmap
+            bbmap.sh in={input.R1} in2={input.R2} minid=0.90 threads={threads} ref={input.fa} outm={output.outsam} overwrite=t nodisk=t 2> {log.err} 1> {log.out}
+            samtools view -bSh1 {output.outsam} | samtools sort -m 20G -@ 3 > {output.outbam}
+            jgi_summarize_bam_contig_depths {output.outbam} --outputDepth {output.dep}
+            '''
+    #module load ngs tools
+    #module load perl
+    #module load java/1.8.0
+    #module load bbmap/36.49
+    #module load samtools/1.10
+    #module load metabat/2.12.1
+
+# Use MetaBat2 to bin scaffolds from sample
+rule metabat2:
+    input:
+        asm="metaspades/{sample}/simulated_{sample}.scaf.min1000.fa",
+        dep="coverage/{sample}.txt"
+    output:
+        "metabat2/{sample}/{sample}.bin"
+    params:
+        out="metabat2/{sample}/{sample}.bin",
+        #time="time/metabat2/{sample}.time",
+        binsize = lambda wildcards: 10000 if helpers.check_plasmids(pathlib.Path(SAMPLE_FILE),
+            wildcards.sample) else 200000
+    log:
+                out="logs/metabat2/{sample}.out",
+                err="logs/metabat2/{sample}.err"
+    benchmark:
+                "benchmarks/{sample}.metabat2.bm.txt"
+    #singularity: "/home/kat/Documents/Uni/fall20/paper/singularity-imgs/metabat-test.sif"
+    #singularity: "singularity-containers/metabat-old-bbtools.sif"
+    #singularity: "shub://KatSteinke/magician-singularity-containers:bbmap_from_metabat"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "bbmap_env.yml"
+
+    threads: 10
+    #threads: 7
+    shell:
+        '''
+       
+        mkdir -p logs/metabat2
+        metabat -t {threads} -v -m 1500 --saveCls -i {input.asm} -a {input.dep} \
+        -o {params.out} --minClsSize {params.binsize} --unbinned --seed 1 2> {log.err} 1> {log.out}
+        '''
+    # module load ngs tools
+    #module load perl
+    #module load metabat/2.12.1
+    #mkdir -p time/metabat2
+    #/usr/bin/time -v -o {params.time} 
+
+# Use prodigal to find ORFs in the metagenome and save genes and proteins
+rule findgenes_prodigal:
+    input:
+        asm="metaspades/simulated_{sample}.scaf.min1000.fa"
+    output:
+        fna="genes/{sample}/{sample}_genes.fna",
+        faa="genes/{sample}/{sample}_proteins.faa",
+        prodi="genes/{sample}/{sample}_prodigal.txt"
+    threads: 2
+    shell:
+        '''
+        prodigal -i {input.asm} -p meta -a {output.faa} -d {output.fna} -o {output.prodi}
+        '''
+
+# Get stats on assembled MAGs
+rule sample_stats:
+    input:
+        bins = "metabat2/{sample}/{sample}.bin"
+    output:
+        stats_file = "stats/{sample}.tsv"
+    #singularity: "docker://staphb/bbtools:38.86"
+    #singularity: "singularity-containers/metabat-old-bbtools.sif"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "bbtools_newer.yml"
+    shell:
+        '''
+        
+        statswrapper.sh {input.bins}.*.fa > {output.stats_file}
+        '''
+
+
+rule reference_stats:
+    input:
+        refs_checkfile = "camisim_fasta_{sample}/{sample}_checkfile"
+    params:
+        ref_fastas = "camisim_fasta_{sample}"
+    output:
+        ref_stats = "ref_stats/{sample}_refgenomes.tsv"
+    #singularity: "docker://staphb/bbtools:38.86"
+    #singularity: "singularity-containers/metabat-old-bbtools.sif"
+    conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "bbtools_newer.yml"
+    shell:
+        '''
+        
+        statswrapper.sh {params.ref_fastas}/*.fa > {output.ref_stats}
+        '''
+
+
+# Run checkm on the MAGs to estimate taxonomy and quality
+rule checkm:
+        input:
+                check_file = "metabat2/{sample}/{sample}.bin"
+        params:
+            dir="metabat2/{sample}",
+            pplacer_threads=1  # pplacer is a memory hungry beast
+        output:
+                txt="checkm/{sample}.checkm.txt",
+                dir=directory("checkm/{sample}.checkm")
+        threads: 20
+       # threads: 7
+        #singularity: "docker://abremges/checkm-genome"
+        #singularity: "docker://nanozoo/checkm"
+        conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "checkm_env.yml"
+        shell:
+                '''
+               
+        checkm lineage_wf -f {output.txt} -t {threads} --pplacer_threads {params.pplacer_threads} --tab_table -x fa {params.dir} {output.dir}
+        '''
+
+rule checkm_refs:
+        input:
+            refs_checkfile = "camisim_fasta_{sample}/{sample}_checkfile"
+        params:
+            ref_fastas = "camisim_fasta_{sample}"
+        output:
+                ref_txt="ref_checkm/{sample}_refgenomes.checkm.txt",
+                dir=directory("ref_checkm/{sample}_refgenomes.checkm")
+        threads: 20
+        #threads: 7
+        #singularity: "docker://abremges/checkm-genome" # TODO check if this works?
+        #singularity: "docker://nanozoo/checkm"
+        conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "checkm_env.yml"
+        shell:
+                '''
+        checkm lineage_wf -f {output.ref_txt} -t {threads} --pplacer_threads {threads} --tab_table -x fa \
+        {params.ref_fastas} {output.dir}
+        '''
+        # old commands
+        #module load ngs tools
+        #module unload anaconda3/4.4.0
+        #module load anaconda2/4.4.0
+        #module load prodigal/2.6.2
+        #module load hmmer/3.1b2
+        #module load pplacer/1.1.alpha17
+
+# combine original and MAG'ed genomes
+rule pool_bins_and_refs_per_sample:
+    input:
+        metabat_bins = "metabat2/{sample}/{sample}.bin"
+    output:
+        all_binned = "bins_all/{sample}/{sample}"
+    
+    shell: '''
+        cp metabat2/{wildcards.sample}/*.bin.*.fa bins_all/{wildcards.sample}/
+        cp camisim_fasta_{wildcards.sample}/*.fa bins_all/{wildcards.sample}/
+        touch bins_all/{wildcards.sample}/{wildcards.sample}
+        '''
+        
+# Compare genomes to each other using dRep
+rule drep_sample:
+        input:
+            check_file = "bins_all/{sample}/{sample}"
+        output:
+                test="drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf",
+                mummer_file="drep_genomes/{sample}/data_tables/Ndb.csv"
+        params:
+            indir="bins_all/{sample}",
+            outdir="drep_genomes/{sample}"
+        threads: 40
+        #threads: 20
+        #threads: 7
+        #singularity: "docker://sstevens/drep-genome-nocheckm"
+        #singularity: "singularity-containers/drep_test.sif"
+        #singularity: "shub://KatSteinke/magician-singularity-containers:drep"
+        conda: pathlib.Path(workflow.current_basedir).parent / "envs" / "drep_env.yml"
+        shell:
+                '''
+                
+                dRep compare {params.outdir} -p {threads} -ms 1000 -g {params.indir}/*fa
+                '''
+        # old code:
+        #module load tools ngs
+                #module load anaconda3/4.4.0
+                #module load mash/2.2
+                #module load mummer/3.23
+# ### END ADAPTED CODE ###
+
+# Clean up old dRep results
+rule cleanup_drep:
+    input:
+         drep_check = "drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf"
+    output:
+          check_file = "drep_old/{sample}/{sample}_move_check"
+
+    shell:
+         '''
+         mv drep_genomes/{wildcards.sample} drep_old/
+         touch drep_old/{wildcards.sample}/{wildcards.sample}_move_check
+         '''
+
+rule summarize_results:
+    input:
+         bin_stats = "stats/{sample}.tsv",
+         ref_stats = "ref_stats/{sample}_refgenomes.tsv",
+         bin_checkm = "checkm/{sample}.checkm.txt",
+         ref_checkm = "ref_checkm/{sample}_refgenomes.checkm.txt",
+         drep_mummer = "drep_genomes/{sample}/data_tables/Ndb.csv",
+    output:
+         summary_stats = "summaries/general_summary_{sample}.xlsx"
+    #conda: pathlib.Path(workflow.current_basedir).parent / "requirements.yml"
+    shell:
+         '''
+         python3 {MAGICIAN_DIR}/generate_summary/extract_stats.py \
+         {input.bin_stats} {input.ref_stats} {input.bin_checkm} {input.ref_checkm} {input.drep_mummer} \
+          -o {output.summary_stats}
+         '''
+
+rule make_bin_summary:
+    input:
+         summary_stats = "summaries/general_summary_{sample}.xlsx"
+    output:
+          bin_stats = "summaries/bin_summary_{sample}.xlsx"
+    #conda: pathlib.Path(workflow.current_basedir).parent / "requirements.yml"
+    shell:
+         '''
+         python3 {MAGICIAN_DIR}/generate_summary/make_comparison_table.py \
+         {input.summary_stats} -o {output.bin_stats}
+         '''
