@@ -2,3 +2,7 @@
 .snakemake
 data
 .condarc
+.cursor
+ref_checkm
+ref_stats
+tmp_demo_sample_distributions.tsv
