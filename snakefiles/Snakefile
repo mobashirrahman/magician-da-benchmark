@@ -150,6 +150,7 @@ rule run_camisim:
     conda: "cami_env_py2_fixed"
     shell:
         '''
+        rm -rf camisim_out/{wildcards.sample}
         python3 {CAMISIM_DIR}/metagenomesimulation.py {input.camisim_configfile}
         cat camisim_out/{wildcards.sample}/*/reads/*1.fq.gz > {output.concat_results_r1}
         cat camisim_out/{wildcards.sample}/*/reads/*2.fq.gz > {output.concat_results_r2}
