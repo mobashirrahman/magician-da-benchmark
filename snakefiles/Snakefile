@@ -2,11 +2,13 @@
 #shell.prefix("source $HOME/.bashrc; ")
 
 import pathlib
+import datetime
 
 import snakemake_helpers as helpers
 
 # required: tab-separated file with genbank path to abundance in sample mapping
-SAMPLE_FILE = config['samples_file']
+# Provide sensible default for tooling (e.g., --lint) when samples_file is not set.
+SAMPLE_FILE = config.get('samples_file', 'dummy.tsv')
 with open(SAMPLE_FILE, "r") as samples_file:
     SAMPLES = samples_file.readline().strip().split("\t")[2:] # from the header, take all but the first two column names
 
@@ -23,7 +25,21 @@ PROFILE_NAME = config.get("profile_name", False)
 READLENGTH = config.get("readlength", False)
 INSERT_SIZE = config.get("insert_size", 270)
 
+# Add global date string for log file naming
+DATE_STR = datetime.date.today().isoformat()
+
 rule complete_qc:
+    """
+    @brief
+        Aggregate rule to run the complete quality control pipeline for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - FastQC reports for all samples.
+        - CheckM text reports and directories for all samples.
+        - Statistics files for all samples.
+        - dRep figures for all samples.
+    """
     input:
         fastqc = expand("qc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES),
         checkm_txt = expand("checkm/{sample}.checkm.txt", sample=SAMPLES),
@@ -32,53 +48,165 @@ rule complete_qc:
         drep_all = expand("drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf", sample=SAMPLES)
 
 rule all_camisim:
+    """
+    @brief
+        Aggregate rule to run CAMISIM for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Pooled R1 and R2 reads for all samples.
+    """
     input:
         all_r1 = expand('camisim_out/{sample}/simulated_{sample}_r1.gz', sample=SAMPLES),
         all_r2 = expand('camisim_out/{sample}/simulated_{sample}_r2.gz', sample=SAMPLES)
 
 rule clean_all_camisim:
-    input: expand("camisim_old_runs/{sample}/{sample}", sample=SAMPLES)
+    """
+    @brief
+        Aggregate rule to clean up CAMISIM outputs for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Checkfiles indicating that cleanup is complete for each sample.
+    """
+    input:
+        cleanup_checks = expand("camisim_old_runs/{sample}/{sample}", sample=SAMPLES)
 
 rule all_qc:
-        input: expand("qc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES)
+    """
+    @brief
+        Aggregate rule to run FastQC for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - FastQC HTML reports for all samples.
+    """
+    input:
+        fastqc_reports = expand("results/fastqc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES)
 
 rule all_metaspades:
-    input: expand("metaspades/{sample}/{sample}_scaffolds.fasta", sample=SAMPLES)
+    """
+    @brief
+        Aggregate rule to run metaSPAdes assembly for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Assembled scaffolds for all samples.
+    """
+    input:
+        scaffolds = expand("metaspades/{sample}/{sample}_scaffolds.fasta", sample=SAMPLES)
 
 rule make_mags:
-    input: expand("metabat2/{sample}/{sample}.bin", sample=SAMPLES)
+    """
+    @brief
+        Aggregate rule to generate MAGs for all samples using MetaBAT2.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - MetaBAT2 output bin prefixes for all samples.
+    """
+    input:
+        bin_prefixes = expand("metabat2/{sample}/{sample}.bin", sample=SAMPLES)
 
 rule all_checkm:
+    """
+    @brief
+        Aggregate rule to run CheckM on MAGs for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - CheckM text reports and directories for all samples.
+    """
     input:
         txt=expand("checkm/{sample}.checkm.txt", sample=SAMPLES),
         dir=expand("checkm/{sample}.checkm", sample=SAMPLES)
 
 rule all_stats:
+    """
+    @brief
+        Aggregate rule to generate statistics for MAGs for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Statistics files for all samples.
+    """
     input:
         stat_files = expand("stats/{sample}.tsv", sample=SAMPLES)
 
 rule pool_bins_and_refs_each_sample:
+    """
+    @brief
+        Aggregate rule to pool MAGs and reference genomes for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Checkfiles indicating pooling is complete for each sample.
+    """
     input:
         merged=expand("bins_all/{sample}/{sample}", sample=SAMPLES)
         
 rule all_drep:
+    """
+    @brief
+        Aggregate rule to run dRep on all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - dRep figures for all samples.
+    """
     input: 
         test = expand("drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf", sample=SAMPLES)
 
 rule clean_all_drep:
+    """
+    @brief
+        Aggregate rule to clean up dRep outputs for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Checkfiles indicating that dRep cleanup is complete for each sample.
+    """
     input:
         all_checks = expand("drep_old/{sample}/{sample}_move_check", sample=SAMPLES)
 
 rule all_summaries:
+    """
+    @brief
+        Aggregate rule to generate general summary spreadsheets for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - General summary Excel files for all samples.
+    """
     input:
         all_summaries = expand("summaries/general_summary_{sample}.xlsx", sample=SAMPLES)
 
 rule all_bin_summaries:
+    """
+    @brief
+        Aggregate rule to generate bin-specific summary spreadsheets for all samples.
+    @param SAMPLES:
+        List of sample names.
+    @input:
+        - Bin summary Excel files for all samples.
+    """
     input:
         all_bin_summaries = expand("summaries/bin_summary_{sample}.xlsx", sample=SAMPLES)
 
 # Extract and write metadata
 rule camisim_metafiles:
+    """
+    @brief
+        Extracts metadata for a single sample from the main community input file.
+        This includes genome paths, abundances, and creates a checkfile.
+    @param wildcards:
+        - `sample`: The name of the community to simulate.
+    @output:
+        - `camisim_metafile`: Tab-separated metadata for CAMISIM.
+        - `camisim_genomefile`: Mapping of internal IDs to genome files.
+        - `camisim_abundance`: Distribution of abundances for the sample.
+        - `fasta_checkfile`: An empty file to signal completion.
+    """
     params:
         sample_col = "{sample}",
         samplefile = SAMPLE_FILE
@@ -96,6 +224,13 @@ rule camisim_metafiles:
         '''
 
 rule get_samtools_path:
+    """
+    @brief
+        Finds the absolute path to the `samtools` executable in the current
+        conda environment.
+    @output:
+        - `samtools_path`: A temporary file containing the path to samtools.
+    """
     output:
         samtools_path = temp("samtools_path.txt")
     conda: "cami_env_py2"
@@ -107,6 +242,19 @@ rule get_samtools_path:
 
 # Write configuration file for Camisim
 rule camisim_configfiles:
+    """
+    @brief
+        Generates the INI configuration file required to run CAMISIM.
+    @param wildcards:
+        - `sample`: The name of the community to simulate.
+    @input:
+        - `camisim_metafile`: The metadata file for the sample.
+        - `camisim_genomefile`: The genome ID mapping file for the sample.
+        - `camisim_abundance`: The abundance distribution file for the sample.
+        - `samtools_path`: The file containing the path to samtools.
+    @output:
+        - `camisim_configfile`: The generated .ini file for CAMISIM.
+    """
     input:
         camisim_metafile = 'camisim_configfiles/metadata_{sample}',
         camisim_genomefile = 'camisim_configfiles/id_to_genome_file_{sample}',
@@ -142,6 +290,18 @@ rule camisim_configfiles:
 
 # Run CAMISIM on sample, then make one file each with pooled forward & reverse reads
 rule run_camisim:
+    """
+    @brief
+        Runs the CAMISIM metagenome simulation and pools the resulting reads
+        into single forward (R1) and reverse (R2) files.
+    @param wildcards:
+        - `sample`: The name of the community being simulated.
+    @input:
+        - `camisim_configfile`: The .ini configuration file for CAMISIM.
+    @output:
+        - `concat_results_r1`: Gzipped FASTQ file for all R1 reads.
+        - `concat_results_r2`: Gzipped FASTQ file for all R2 reads.
+    """
     input:
         camisim_configfile = 'camisim_config_{sample}.ini'
     output:
@@ -158,6 +318,18 @@ rule run_camisim:
 
 # Move CAMISIM result files, clear out genome locations and metadata
 rule cleanup_camisim:
+    """
+    @brief
+        Cleans up the CAMISIM output directory by moving results and
+        removing intermediate metadata files.
+    @param wildcards:
+        - `sample`: The name of the community being cleaned.
+    @input:
+        - `camisim_resultdir`: The main output directory for the CAMISIM run.
+        - `camisim_result_check`: The pooled R1 reads, used as a checkpoint.
+    @output:
+        - `camisim_check_old`: An empty checkfile to signal completion of cleanup.
+    """
     input:
         camisim_resultdir = "camisim_out/{sample}",
         camisim_result_check = "camisim_out/{sample}/simulated_{sample}_r1.gz"  # check if this has updated
@@ -172,20 +344,48 @@ rule cleanup_camisim:
 
 # Run fastQC on forward/reverse reads
 rule fastqc:
+    """
+    @brief
+        Runs FastQC to generate quality control reports for the simulated reads.
+    @param wildcards:
+        - `sample`: The name of the sample being analyzed.
+    @input:
+        - `reads_r1`: Gzipped FASTQ file of R1 reads.
+        - `reads_r2`: Gzipped FASTQ file of R2 reads.
+    @output:
+        - `qc_r1`: HTML quality report for R1 reads.
+        - `qc_r2`: HTML quality report for R2 reads.
+    """
     input:
         reads_r1 = 'camisim_out/{sample}/simulated_{sample}_r1.gz',
         reads_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
     output:
-        qc_r1 = 'qc/{sample}/simulated_{sample}_r1_fastqc.html',
-        qc_r2 = 'qc/{sample}/simulated_{sample}_r2_fastqc.html'
+        qc_r1 = 'results/fastqc/{sample}/simulated_{sample}_r1_fastqc.html',
+        qc_r2 = 'results/fastqc/{sample}/simulated_{sample}_r2_fastqc.html'
+    log:
+        logfile = f"log/fastqc/fastqc_{DATE_STR}_{{sample}}.log"
     conda: "read_qc"
     shell:
         '''
-        fastqc -o qc/{wildcards.sample} {input.reads_r1} {input.reads_r2}
+        mkdir -p results/fastqc/{wildcards.sample} log/fastqc
+        fastqc -o results/fastqc/{wildcards.sample} {input.reads_r1} {input.reads_r2} >> {log.logfile} 2>&1
         '''
 
 # Quality and adapter trim the raw reads
 rule trim_bbduk:
+    """
+    @brief
+        Trims adapters and low-quality sequences from the raw reads using BBDuk.
+    @param wildcards:
+        - `sample`: The name of the sample being trimmed.
+    @input:
+        - `R1`: Raw R1 reads for the sample.
+        - `R2`: Raw R2 reads for the sample.
+    @output:
+        - `R1`: Trimmed R1 reads.
+        - `R2`: Trimmed R2 reads.
+        - `RS`: Trimmed singleton reads.
+    """
     input:
         R1 = "camisim_out/{sample}/simulated_{sample}_r1.gz",
         R2 = "camisim_out/{sample}/simulated_{sample}_r2.gz"
@@ -194,16 +394,31 @@ rule trim_bbduk:
         R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
         RS = "trimReads/{sample}/simulated_{sample}_S.trim.fq.gz"
     threads: 8
+    log:
+        logfile = f"log/trim_bbduk/trim_bbduk_{DATE_STR}_{{sample}}.log"
     conda: "bbtools_new"
     shell:
         '''
+        mkdir -p log/trim_bbduk
         bbduk.sh -Xmx12g in={input.R1} in2={input.R2} out={output.R1} out2={output.R2} outs={output.RS} overwrite=t \
-        minlen=50 qtrim=r trimq=20 k=19 mink=11 threads={threads} ref=adapters ktrim=n
+        minlen=50 qtrim=r trimq=20 k=19 mink=11 threads={threads} ref=adapters ktrim=n >> {log.logfile} 2>&1
         '''
 
 
 # Do metagenomic assembly using metaSpades
 rule asm_metaspades:
+    """
+    @brief
+        Performs metagenomic assembly of the trimmed reads using metaSPAdes.
+    @param wildcards:
+        - `sample`: The name of the sample being assembled.
+    @input:
+        - `R1`: Trimmed R1 reads.
+        - `R2`: Trimmed R2 reads.
+        - `RS`: Trimmed singleton reads.
+    @output:
+        - `fa`: Assembled scaffolds in FASTA format.
+    """
     input:
         R1 = "trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
         R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
@@ -214,16 +429,16 @@ rule asm_metaspades:
         dir = "metaspades/{sample}",
         asm = "metaspades/{sample}/scaffolds.fasta"
     log:
-        out = "logs/asm_metaspades/{sample}.out",
-        err = "logs/asm_metaspades/{sample}.err"
+        logfile = f"log/asm_metaspades/asm_metaspades_{DATE_STR}_{{sample}}.log"
     benchmark:
-        "benchmarks/{sample}.metaspades.bm.txt"
+        "benchmark/asm_metaspades/{sample}.txt"
     threads: 20
     conda: "metaspades_env"
     shell:
         '''
+        mkdir -p log/asm_metaspades
         metaspades.py -t {threads} -1 {input.R1} -2 {input.R2} -s {input.RS} \
-        -o {params.dir} -k 27,47,67,87,107,127 --memory 120 2> {log.err} 1> {log.out}
+        -o {params.dir} -k 27,47,67,87,107,127 --memory 120 >> {log.logfile} 2>&1
         mv {params.asm} {output.fa}
         '''
 
@@ -231,6 +446,18 @@ rule asm_metaspades:
 # Remove leftover files and compress final output
 # Should only run when final metaspades output and some junk is present
 rule cleanup_metaspades:
+    """
+    @brief
+        Cleans up intermediate files and directories generated by metaSPAdes.
+    @param wildcards:
+        - `sample`: The name of the sample whose assembly files are being cleaned.
+    @input:
+        - `dir`: The metaSPAdes output directory.
+        - `scaf`: The final filtered scaffolds file (used as a checkpoint).
+        - `junk`: An intermediate contigs file to be removed.
+    @output:
+        - `cleanup`: An empty file to signal completion of cleanup.
+    """
     input:
         dir="metaspades/{sample}",
         scaf="metaspades/{sample}/simulated_{sample}.scaf.min1000.fa",
@@ -252,6 +479,17 @@ rule cleanup_metaspades:
 
 # Remove small scaffolds and add sample prefix to fasta header
 rule filter_scafs:
+    """
+    @brief
+        Filters the assembled scaffolds to remove those shorter than 1000bp
+        and adds the sample name as a prefix to each scaffold header.
+    @param wildcards:
+        - `sample`: The name of the sample, used as the prefix.
+    @input:
+        - `asm`: The raw assembled scaffolds from metaSPAdes.
+    @output:
+        - `asm`: The filtered and renamed scaffolds.
+    """
     input:
         asm="metaspades/{sample}/{sample}_scaffolds.fasta"
     output:
@@ -268,6 +506,21 @@ rule filter_scafs:
 
 # Map reads to assembly to get coverage and depth
 rule map_bbmap:
+    """
+    @brief
+        Maps the trimmed reads back to the filtered assembly scaffolds using BBMap
+        to generate alignment and coverage depth information.
+    @param wildcards:
+        - `sample`: The name of the sample being mapped.
+    @input:
+        - `R1`: Trimmed R1 reads.
+        - `R2`: Trimmed R2 reads.
+        - `fa`: Filtered and renamed scaffolds.
+    @output:
+        - `outsam`: The alignment in SAM format.
+        - `outbam`: The sorted alignment in BAM format.
+        - `dep`: A text file containing per-contig depth information.
+    """
     input:
         R1="trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
         R2="trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
@@ -277,15 +530,14 @@ rule map_bbmap:
         outbam="mapped/{sample}.sort.bam",
         dep="coverage/{sample}.txt"
     log:
-        out="logs/map_bbmap/{sample}.out",
-        err="logs/map_bbmap/{sample}.err"
+        logfile = f"log/map_bbmap/map_bbmap_{DATE_STR}_{{sample}}.log"
     threads: 20
     conda: "bbmap_env"
     shell:
             '''
             
-            mkdir -p logs/map_bbmap
-            bbmap.sh in={input.R1} in2={input.R2} minid=0.90 threads={threads} ref={input.fa} outm={output.outsam} overwrite=t nodisk=t 2> {log.err} 1> {log.out}
+            mkdir -p log/map_bbmap
+            bbmap.sh in={input.R1} in2={input.R2} minid=0.90 threads={threads} ref={input.fa} outm={output.outsam} overwrite=t nodisk=t 2> {log.logfile} 1> {log.logfile}
             samtools view -bSh1 {output.outsam} | samtools sort -m 20G -@ 3 > {output.outbam}
             jgi_summarize_bam_contig_depths {output.outbam} --outputDepth {output.dep}
             '''
@@ -298,31 +550,54 @@ rule map_bbmap:
 
 # Use MetaBat2 to bin scaffolds from sample
 rule metabat2:
+    """
+    @brief
+        Bins the assembled scaffolds into metagenome-assembled genomes (MAGs)
+        using MetaBAT2, based on coverage depth and sequence composition.
+    @param wildcards:
+        - `sample`: The name of the sample being binned.
+    @input:
+        - `asm`: The filtered scaffolds for the sample.
+        - `dep`: The per-contig coverage depth file.
+    @output:
+        - A prefix for the output bin files (`.fa`).
+    """
     input:
         asm = "metaspades/{sample}/simulated_{sample}.scaf.min1000.fa",
         dep = "coverage/{sample}.txt"
     output:
-        "metabat2/{sample}/{sample}.bin"
+        bin_prefix = "metabat2/{sample}/{sample}.bin"
     params:
         out = "metabat2/{sample}/{sample}.bin",
         binsize = lambda wildcards: 10000 if helpers.check_plasmids(pathlib.Path(SAMPLE_FILE),
             wildcards.sample) else 200000
     log:
-        out = "logs/metabat2/{sample}.out",
-        err = "logs/metabat2/{sample}.err"
+        logfile = f"log/metabat2/metabat2_{DATE_STR}_{{sample}}.log"
     benchmark:
-        "benchmarks/{sample}.metabat2.bm.txt"
+        "benchmark/metabat2/{sample}.txt"
     threads: 10
     conda: "bbmap_env"
     shell:
         '''
-        mkdir -p logs/metabat2
+        mkdir -p log/metabat2
         metabat -t {threads} -v -m 1500 --saveCls -i {input.asm} -a {input.dep} \
-        -o {params.out} --minClsSize {params.binsize} --unbinned --seed 1 2> {log.err} 1> {log.out}
+        -o {params.out} --minClsSize {params.binsize} --unbinned --seed 1 >> {log.logfile} 2>&1
         '''
 
 # Use prodigal to find ORFs in the metagenome and save genes and proteins
 rule findgenes_prodigal:
+    """
+    @brief
+        Predicts genes (ORFs) from the assembled scaffolds using Prodigal.
+    @param wildcards:
+        - `sample`: The name of the sample being annotated.
+    @input:
+        - `asm`: The filtered scaffolds for the sample.
+    @output:
+        - `fna`: Predicted genes in nucleotide FASTA format.
+        - `faa`: Predicted proteins in amino acid FASTA format.
+        - `prodi`: Main prodigal output file.
+    """
     input:
         asm="metaspades/simulated_{sample}.scaf.min1000.fa"
     output:
@@ -337,6 +612,16 @@ rule findgenes_prodigal:
 
 # Get stats on assembled MAGs
 rule sample_stats:
+    """
+    @brief
+        Calculates and summarizes assembly statistics for the generated MAGs.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `bins`: The prefix for the MAG bin files from MetaBAT2.
+    @output:
+        - `stats_file`: A TSV file containing statistics for each MAG.
+    """
     input:
         bins = "metabat2/{sample}/{sample}.bin"
     output:
@@ -350,6 +635,16 @@ rule sample_stats:
 
 
 rule reference_stats:
+    """
+    @brief
+        Calculates and summarizes assembly statistics for the original reference genomes.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `refs_checkfile`: A checkfile indicating the reference FASTAs are ready.
+    @output:
+        - `ref_stats`: A TSV file containing statistics for each reference genome.
+    """
     input:
         refs_checkfile = "camisim_fasta_{sample}/{sample}_checkfile"
     params:
@@ -366,6 +661,18 @@ rule reference_stats:
 
 # Run checkm on the MAGs to estimate taxonomy and quality
 rule checkm:
+    """
+    @brief
+        Assesses the quality (completeness, contamination) of the generated MAGs
+        using CheckM.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `check_file`: The prefix for the MAG bin files from MetaBAT2.
+    @output:
+        - `txt`: A tab-separated table of CheckM results.
+        - `dir`: The main CheckM output directory containing plots and other files.
+    """
     input:
         check_file = "metabat2/{sample}/{sample}.bin"
     params:
@@ -382,6 +689,17 @@ rule checkm:
         '''
 
 rule checkm_refs:
+    """
+    @brief
+        Assesses the quality of the original reference genomes using CheckM.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `refs_checkfile`: A checkfile indicating the reference FASTAs are ready.
+    @output:
+        - `ref_txt`: A tab-separated table of CheckM results for the references.
+        - `dir`: The main CheckM output directory for the reference analysis.
+    """
     input:
         refs_checkfile = "camisim_fasta_{sample}/{sample}_checkfile"
     params:
@@ -399,6 +717,17 @@ rule checkm_refs:
 
 # combine original and MAG'ed genomes
 rule pool_bins_and_refs_per_sample:
+    """
+    @brief
+        Pools the generated MAGs and the original reference genomes into a
+        single directory for comparison.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `metabat_bins`: The prefix for the MAG bin files from MetaBAT2.
+    @output:
+        - `all_binned`: An empty checkfile to signal completion of pooling.
+    """
     input:
         metabat_bins = "metabat2/{sample}/{sample}.bin"
     output:
@@ -412,6 +741,18 @@ rule pool_bins_and_refs_per_sample:
         
 # Compare genomes to each other using dRep
 rule drep_sample:
+    """
+    @brief
+        Compares all genomes (MAGs and references) for a given sample using dRep
+        to identify clusters of closely related genomes (dereplication).
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `check_file`: A checkfile indicating that genome pooling is complete.
+    @output:
+        - `test`: A PDF figure of the secondary clustering dendrogram from dRep.
+        - `mummer_file`: A CSV table of Mash and Mummer comparison data.
+    """
     input:
         check_file = "bins_all/{sample}/{sample}"
     output:
@@ -429,6 +770,17 @@ rule drep_sample:
 
 # Clean up old dRep results
 rule cleanup_drep:
+    """
+    @brief
+        Moves the output directory of a dRep run into an archive folder
+        to clean up for a potential new run.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `drep_check`: A dRep output file, used as a check for completion.
+    @output:
+        - `check_file`: An empty file to signal that cleanup is complete.
+    """
     input:
          drep_check = "drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf"
     output:
@@ -441,6 +793,21 @@ rule cleanup_drep:
          '''
 
 rule summarize_results:
+    """
+    @brief
+        Aggregates results from various pipeline steps (stats, CheckM, dRep)
+        into a single summary Excel spreadsheet.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `bin_stats`: Statistics for the MAGs.
+        - `ref_stats`: Statistics for the reference genomes.
+        - `bin_checkm`: CheckM quality report for the MAGs.
+        - `ref_checkm`: CheckM quality report for the reference genomes.
+        - `drep_mummer`: dRep comparison data table.
+    @output:
+        - `summary_stats`: The final combined summary in an Excel file.
+    """
     input:
          bin_stats = "stats/{sample}.tsv",
          ref_stats = "ref_stats/{sample}_refgenomes.tsv",
@@ -458,6 +825,17 @@ rule summarize_results:
          '''
 
 rule make_bin_summary:
+    """
+    @brief
+        Creates a focused comparison table of MAGs and their closest reference
+        genomes from the general summary file.
+    @param wildcards:
+        - `sample`: The name of the sample.
+    @input:
+        - `summary_stats`: The general summary Excel file.
+    @output:
+        - `bin_stats`: An Excel file containing the bin-focused comparison table.
+    """
     input:
          summary_stats = "summaries/general_summary_{sample}.xlsx"
     output:
@@ -468,3 +846,144 @@ rule make_bin_summary:
          python3 {MAGICIAN_DIR}/generate_summary/make_comparison_table.py \
          {input.summary_stats} -o {output.bin_stats}
          '''
+
+
+# ----------------------------------------------------------
+#  COVERM   → per-sample coverage tables
+#  BUILD    → merge into wide matrices (one per metric)
+#  Metrics  : reads, rpkm, tpm, relative_abundance, covered_bases,
+#             mean_coverage, median_coverage
+# ----------------------------------------------------------
+
+rule coverm_metrics:
+    """
+    @brief
+        Generate a multi-metric coverage table (counts, RPKM, TPM, relative abundance, breadth, mean depth)
+        for a single metagenomic sample using CoverM.
+    @param wildcards:
+        - `sample`: Sample identifier extracted from the FASTQ/BAM filenames.
+    @input:
+        - `bam`: Sorted BAM alignment file (read mapping of the sample).
+        - `genome_dir`: Directory containing MAGs/reference genome FASTA files for the sample.
+    @output:
+        - `tsv`: Tab-separated table containing coverage metrics for each genome in the sample.
+    """
+    input:
+        bam        = "mapped/{sample}.sort.bam",
+        genome_dir = "bins_all/{sample}"
+    output:
+        tsv = "metrics/{sample}.coverage.tsv"
+    threads: 16
+    conda: "coverm_env"                # env with coverm ≥ 0.7.0 + samtools
+    shell:
+        """
+        mkdir -p metrics
+        # build filtered list of genome FASTAs (non-zero size, ignore placeholder files)
+        GENOMES=$(find {input.genome_dir} -name '*.fa' -type f -size +0c \
+                  ! -name '*lowDepth.fa' ! -name '*tooShort.fa' ! -name '*unbinned.fa' | tr '\n' ' ')
+
+        METRICS_TMP=$(mktemp)
+        COUNTS_TMP=$(mktemp)
+        export METRICS_TMP COUNTS_TMP
+
+        coverm genome \
+            --bam-files {input.bam} \
+            --genome-fasta-files $GENOMES \
+            --methods rpkm tpm relative_abundance covered_bases mean \
+            --min-covered-fraction 0.90 \
+            --output-file $METRICS_TMP \
+            --threads {threads}
+
+        coverm genome \
+            --bam-files {input.bam} \
+            --genome-fasta-files $GENOMES \
+            --methods count \
+            --min-covered-fraction 0 \
+            --output-file $COUNTS_TMP \
+            --threads {threads}
+
+        python - << 'PY'
+import os, pandas as pd
+metrics = pd.read_csv(os.environ['METRICS_TMP'], sep='\t')
+counts  = pd.read_csv(os.environ['COUNTS_TMP'],  sep='\t')
+merged  = counts.merge(metrics, on='Genome', how='outer').fillna(0)
+merged.to_csv('{output.tsv}', sep='\t', index=False)
+PY
+
+        rm $METRICS_TMP $COUNTS_TMP
+        """
+
+rule build_metric_matrices:
+    """
+    @brief
+        Collate per-sample coverage tables into six wide matrices (counts, RPKM, TPM, relative abundance,
+        breadth, mean depth); rows correspond to samples and columns to genome IDs.
+    @input:
+        - Coverage TSV files for all samples (produced by `coverm_metrics`).
+    @output:
+        - `counts`: Wide matrix of read counts per genome.
+        - `rpkm`:  Wide matrix of RPKM values.
+        - `tpm`:   Wide matrix of TPM values.
+        - `relative`: Wide matrix of relative abundances (%).
+        - `breadth`: Wide matrix of covered bases.
+        - `coverage`: Wide matrix of mean depths.
+    """
+    input:
+        expand("metrics/{sample}.coverage.tsv", sample=SAMPLES)
+    output:
+        counts   = "metrics/counts.tsv",
+        rpkm     = "metrics/rpkm.tsv",
+        tpm      = "metrics/tpm.tsv",
+        relative = "metrics/relative.tsv",
+        breadth  = "metrics/breadth.tsv",
+        coverage = "metrics/coverage.tsv"   # mean depth
+    run:
+        import pandas as pd, glob, os, pathlib
+        mats = {
+            'count': [],
+            'rpkm':  [],
+            'tpm':   [],
+            'relative_abundance': [],
+            'covered_bases': [],
+            'mean': []
+        }
+        for f in glob.glob("metrics/*.coverage.tsv"):
+            df = pd.read_csv(f, sep='\t')
+            sample = pathlib.Path(f).stem.replace(".coverage","")
+            cols = {k: [c for c in df.columns if c.endswith(suffix)] for k, suffix in {
+                'count': 'Read Count',
+                'rpkm': 'RPKM',
+                'tpm': 'TPM',
+                'relative_abundance': 'Relative Abundance (%)',
+                'covered_bases': 'Covered Bases',
+                'mean': 'Mean'
+            }.items()}
+            for key, col_list in cols.items():
+                if not col_list:
+                    raise KeyError(f"{key} column not found in {f}")
+                mats[key].append(df.set_index('Genome')[col_list[0]].rename(sample))
+
+        pd.concat(mats['count'],               axis=1).to_csv(output.counts,   sep='\t')
+        pd.concat(mats['rpkm'],                axis=1).to_csv(output.rpkm,     sep='\t')
+        pd.concat(mats['tpm'],                 axis=1).to_csv(output.tpm,      sep='\t')
+        pd.concat(mats['relative_abundance'],  axis=1).to_csv(output.relative, sep='\t')
+        pd.concat(mats['covered_bases'],       axis=1).to_csv(output.breadth,  sep='\t')
+        pd.concat(mats['mean'],                axis=1).to_csv(output.coverage, sep='\t')
+
+rule all_metrics:
+    """
+    @brief
+        Convenience aggregate rule that bundles the generation of all per-sample tables and combined
+        metric matrices into a single target.
+    @input:
+        - Per-sample coverage tables (`metrics/{sample}.coverage.tsv`).
+        - Combined wide matrices (`metrics/*.tsv`).
+    """
+    input:
+        expand("metrics/{sample}.coverage.tsv", sample=SAMPLES),
+        "metrics/counts.tsv",
+        "metrics/rpkm.tsv",
+        "metrics/tpm.tsv",
+        "metrics/relative.tsv",
+        "metrics/breadth.tsv",
+        "metrics/coverage.tsv"
