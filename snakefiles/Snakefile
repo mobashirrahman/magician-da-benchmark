@@ -2,13 +2,11 @@
 #shell.prefix("source $HOME/.bashrc; ")
 
 import pathlib
-import datetime
 
 import snakemake_helpers as helpers
 
 # required: tab-separated file with genbank path to abundance in sample mapping
-# Provide sensible default for tooling (e.g., --lint) when samples_file is not set.
-SAMPLE_FILE = config.get('samples_file', 'dummy.tsv')
+SAMPLE_FILE = config['samples_file']
 with open(SAMPLE_FILE, "r") as samples_file:
     SAMPLES = samples_file.readline().strip().split("\t")[2:] # from the header, take all but the first two column names
 
@@ -24,9 +22,6 @@ PROFILE_TYPE = config.get("profile_type", "mbarc")
 PROFILE_NAME = config.get("profile_name", False)
 READLENGTH = config.get("readlength", False)
 INSERT_SIZE = config.get("insert_size", 270)
-
-# Add global date string for log file naming
-DATE_STR = datetime.date.today().isoformat()
 
 rule complete_qc:
     """
@@ -69,8 +64,7 @@ rule clean_all_camisim:
     @input:
         - Checkfiles indicating that cleanup is complete for each sample.
     """
-    input:
-        cleanup_checks = expand("camisim_old_runs/{sample}/{sample}", sample=SAMPLES)
+    input: expand("camisim_old_runs/{sample}/{sample}", sample=SAMPLES)
 
 rule all_qc:
     """
@@ -81,8 +75,7 @@ rule all_qc:
     @input:
         - FastQC HTML reports for all samples.
     """
-    input:
-        fastqc_reports = expand("results/fastqc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES)
+    input: expand("qc/{sample}/simulated_{sample}_r1_fastqc.html", sample=SAMPLES)
 
 rule all_metaspades:
     """
@@ -93,8 +86,7 @@ rule all_metaspades:
     @input:
         - Assembled scaffolds for all samples.
     """
-    input:
-        scaffolds = expand("metaspades/{sample}/{sample}_scaffolds.fasta", sample=SAMPLES)
+    input: expand("metaspades/{sample}/{sample}_scaffolds.fasta", sample=SAMPLES)
 
 rule make_mags:
     """
@@ -105,8 +97,7 @@ rule make_mags:
     @input:
         - MetaBAT2 output bin prefixes for all samples.
     """
-    input:
-        bin_prefixes = expand("metabat2/{sample}/{sample}.bin", sample=SAMPLES)
+    input: expand("metabat2/{sample}/{sample}.bin", sample=SAMPLES)
 
 rule all_checkm:
     """
@@ -360,15 +351,12 @@ rule fastqc:
         reads_r1 = 'camisim_out/{sample}/simulated_{sample}_r1.gz',
         reads_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
     output:
-        qc_r1 = 'results/fastqc/{sample}/simulated_{sample}_r1_fastqc.html',
-        qc_r2 = 'results/fastqc/{sample}/simulated_{sample}_r2_fastqc.html'
-    log:
-        logfile = f"log/fastqc/fastqc_{DATE_STR}_{{sample}}.log"
+        qc_r1 = 'qc/{sample}/simulated_{sample}_r1_fastqc.html',
+        qc_r2 = 'qc/{sample}/simulated_{sample}_r2_fastqc.html'
     conda: "read_qc"
     shell:
         '''
-        mkdir -p results/fastqc/{wildcards.sample} log/fastqc
-        fastqc -o results/fastqc/{wildcards.sample} {input.reads_r1} {input.reads_r2} >> {log.logfile} 2>&1
+        fastqc -o qc/{wildcards.sample} {input.reads_r1} {input.reads_r2}
         '''
 
 # Quality and adapter trim the raw reads
@@ -394,14 +382,11 @@ rule trim_bbduk:
         R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
         RS = "trimReads/{sample}/simulated_{sample}_S.trim.fq.gz"
     threads: 8
-    log:
-        logfile = f"log/trim_bbduk/trim_bbduk_{DATE_STR}_{{sample}}.log"
     conda: "bbtools_new"
     shell:
         '''
-        mkdir -p log/trim_bbduk
         bbduk.sh -Xmx12g in={input.R1} in2={input.R2} out={output.R1} out2={output.R2} outs={output.RS} overwrite=t \
-        minlen=50 qtrim=r trimq=20 k=19 mink=11 threads={threads} ref=adapters ktrim=n >> {log.logfile} 2>&1
+        minlen=50 qtrim=r trimq=20 k=19 mink=11 threads={threads} ref=adapters ktrim=n
         '''
 
 
@@ -429,16 +414,16 @@ rule asm_metaspades:
         dir = "metaspades/{sample}",
         asm = "metaspades/{sample}/scaffolds.fasta"
     log:
-        logfile = f"log/asm_metaspades/asm_metaspades_{DATE_STR}_{{sample}}.log"
+        out = "logs/asm_metaspades/{sample}.out",
+        err = "logs/asm_metaspades/{sample}.err"
     benchmark:
-        "benchmark/asm_metaspades/{sample}.txt"
+        "benchmarks/{sample}.metaspades.bm.txt"
     threads: 20
     conda: "metaspades_env"
     shell:
         '''
-        mkdir -p log/asm_metaspades
         metaspades.py -t {threads} -1 {input.R1} -2 {input.R2} -s {input.RS} \
-        -o {params.dir} -k 27,47,67,87,107,127 --memory 120 >> {log.logfile} 2>&1
+        -o {params.dir} -k 27,47,67,87,107,127 --memory 120 2> {log.err} 1> {log.out}
         mv {params.asm} {output.fa}
         '''
 
@@ -530,14 +515,15 @@ rule map_bbmap:
         outbam="mapped/{sample}.sort.bam",
         dep="coverage/{sample}.txt"
     log:
-        logfile = f"log/map_bbmap/map_bbmap_{DATE_STR}_{{sample}}.log"
+        out="logs/map_bbmap/{sample}.out",
+        err="logs/map_bbmap/{sample}.err"
     threads: 20
     conda: "bbmap_env"
     shell:
             '''
             
-            mkdir -p log/map_bbmap
-            bbmap.sh in={input.R1} in2={input.R2} minid=0.90 threads={threads} ref={input.fa} outm={output.outsam} overwrite=t nodisk=t 2> {log.logfile} 1> {log.logfile}
+            mkdir -p logs/map_bbmap
+            bbmap.sh in={input.R1} in2={input.R2} minid=0.90 threads={threads} ref={input.fa} outm={output.outsam} overwrite=t nodisk=t 2> {log.err} 1> {log.out}
             samtools view -bSh1 {output.outsam} | samtools sort -m 20G -@ 3 > {output.outbam}
             jgi_summarize_bam_contig_depths {output.outbam} --outputDepth {output.dep}
             '''
@@ -566,22 +552,23 @@ rule metabat2:
         asm = "metaspades/{sample}/simulated_{sample}.scaf.min1000.fa",
         dep = "coverage/{sample}.txt"
     output:
-        bin_prefix = "metabat2/{sample}/{sample}.bin"
+        "metabat2/{sample}/{sample}.bin"
     params:
         out = "metabat2/{sample}/{sample}.bin",
         binsize = lambda wildcards: 10000 if helpers.check_plasmids(pathlib.Path(SAMPLE_FILE),
             wildcards.sample) else 200000
     log:
-        logfile = f"log/metabat2/metabat2_{DATE_STR}_{{sample}}.log"
+        out = "logs/metabat2/{sample}.out",
+        err = "logs/metabat2/{sample}.err"
     benchmark:
-        "benchmark/metabat2/{sample}.txt"
+        "benchmarks/{sample}.metabat2.bm.txt"
     threads: 10
     conda: "bbmap_env"
     shell:
         '''
-        mkdir -p log/metabat2
+        mkdir -p logs/metabat2
         metabat -t {threads} -v -m 1500 --saveCls -i {input.asm} -a {input.dep} \
-        -o {params.out} --minClsSize {params.binsize} --unbinned --seed 1 >> {log.logfile} 2>&1
+        -o {params.out} --minClsSize {params.binsize} --unbinned --seed 1 2> {log.err} 1> {log.out}
         '''
 
 # Use prodigal to find ORFs in the metagenome and save genes and proteins
@@ -857,16 +844,9 @@ rule make_bin_summary:
 
 rule coverm_metrics:
     """
-    @brief
-        Generate a multi-metric coverage table (counts, RPKM, TPM, relative abundance, breadth, mean depth)
-        for a single metagenomic sample using CoverM.
-    @param wildcards:
-        - `sample`: Sample identifier extracted from the FASTQ/BAM filenames.
-    @input:
-        - `bam`: Sorted BAM alignment file (read mapping of the sample).
-        - `genome_dir`: Directory containing MAGs/reference genome FASTA files for the sample.
-    @output:
-        - `tsv`: Tab-separated table containing coverage metrics for each genome in the sample.
+    Generate a multi-metric coverage table for one sample.
+    Output columns: Genome, count, rpkm, tpm, relative_abundance,
+                    covered_bases, mean
     """
     input:
         bam        = "mapped/{sample}.sort.bam",
@@ -915,18 +895,8 @@ PY
 
 rule build_metric_matrices:
     """
-    @brief
-        Collate per-sample coverage tables into six wide matrices (counts, RPKM, TPM, relative abundance,
-        breadth, mean depth); rows correspond to samples and columns to genome IDs.
-    @input:
-        - Coverage TSV files for all samples (produced by `coverm_metrics`).
-    @output:
-        - `counts`: Wide matrix of read counts per genome.
-        - `rpkm`:  Wide matrix of RPKM values.
-        - `tpm`:   Wide matrix of TPM values.
-        - `relative`: Wide matrix of relative abundances (%).
-        - `breadth`: Wide matrix of covered bases.
-        - `coverage`: Wide matrix of mean depths.
+    Collate all sample tables into six-wide matrices stored in metrics/*.tsv.
+    Rows = samples, columns = MAG IDs.
     """
     input:
         expand("metrics/{sample}.coverage.tsv", sample=SAMPLES)
@@ -972,12 +942,7 @@ rule build_metric_matrices:
 
 rule all_metrics:
     """
-    @brief
-        Convenience aggregate rule that bundles the generation of all per-sample tables and combined
-        metric matrices into a single target.
-    @input:
-        - Per-sample coverage tables (`metrics/{sample}.coverage.tsv`).
-        - Combined wide matrices (`metrics/*.tsv`).
+    Convenience aggregate target.
     """
     input:
         expand("metrics/{sample}.coverage.tsv", sample=SAMPLES),
