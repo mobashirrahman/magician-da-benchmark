@@ -1,0 +1,10 @@
+name: coverm_env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - coverm
+  - samtools
+  - pigz
+  - python
+  - pandas

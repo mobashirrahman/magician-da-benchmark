@@ -1,0 +1,25 @@
+# ── gtdbtk_env.yml ─────────────────────────────────────────────
+name: gtdbtk_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # ── core tool ────────────────────────────────────────────────
+  - gtdbtk=2.*          # v2.x (≥2.4) currently available on Bioconda; compatible with GTDB releases R220–R226
+
+  # ── executables that GTDB-Tk calls internally ────────────────
+  - hmmer               # HMMER 3 (hmmsearch / hmmalign)
+  - fastani             # average‐nucleotide-identity calculator
+  - prodigal            # gene prediction for ANI step
+  - pplacer             # phylogenetic placement
+
+  # ── Python runtime & helpers ─────────────────────────────────
+  - python=3.11
+  - numpy
+  - pandas
+  - biopython           # GTDB-Tk imports this
+
+  # ── nice-to-haves (not strictly required) ───────────────────
+  - pigz                # faster .gz unpack/pack
+  - mash                # quick genome distance checks

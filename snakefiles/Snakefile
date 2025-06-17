@@ -299,6 +299,7 @@ rule run_camisim:
         concat_results_r1 = 'camisim_out/{sample}/simulated_{sample}_r1.gz',
         concat_results_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
     conda: "cami_env_py2_fixed"
+    resources: camisim_jobs=1
     shell:
         '''
         rm -rf camisim_out/{wildcards.sample}
@@ -739,12 +740,14 @@ rule drep_sample:
     @output:
         - `test`: A PDF figure of the secondary clustering dendrogram from dRep.
         - `mummer_file`: A CSV table of Mash and Mummer comparison data.
+        - `reps_dir`: The directory containing the dRep output.
     """
     input:
         check_file = "bins_all/{sample}/{sample}"
     output:
         test = "drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf",
-        mummer_file = "drep_genomes/{sample}/data_tables/Ndb.csv"
+        mummer_file = "drep_genomes/{sample}/data_tables/Ndb.csv",
+        reps_dir = directory("drep_genomes/{sample}/dereplicated_genomes")
     params:
         indir = "bins_all/{sample}",
         outdir = "drep_genomes/{sample}"
@@ -835,68 +838,199 @@ rule make_bin_summary:
          '''
 
 
+# ------------------------------------------------------------
+# 1.  GTDB-Tk on all MetaBAT2 bins        (before dRep)
+# ------------------------------------------------------------
+rule gtdbtk_bins:
+    """
+    GTDB-Tk classify_wf on all MetaBAT2 bins for one sample.
+    ──────────────────────────────────────────────────────────
+    Outputs:
+        gtdbtk_bins/{sample}/gtdbtk.bac120.summary.tsv
+        gtdbtk_bins/{sample}/gtdbtk.arc122.summary.tsv
+        gtdbtk_bins/{sample}/gtdbtk.tsv    # MAG  ↔  taxonomy
+    """
+    input:
+        bins_prefix = "metabat2/{sample}/{sample}.bin"
+    output:
+        summary  = "gtdbtk_bins/{sample}/gtdbtk.bac120.summary.tsv",
+        taxonomy = "gtdbtk_bins/{sample}/gtdbtk.tsv",
+        outdir   = directory("gtdbtk_bins/{sample}")
+    threads: 32
+    conda: "gtdbtk_env"
+    shell:
+        """
+        mkdir -p {output.outdir}
+        BIN_DIR=$(dirname {input.bins_prefix})
+        gtdbtk classify_wf \
+            --genome_dir   $BIN_DIR \
+            --out_dir      {output.outdir} \
+            --extension    fa \
+            --cpus         {threads}
+
+        echo -e "MAG\tTaxonomy" > {output.taxonomy}
+        for f in {output.outdir}/gtdbtk.*.summary.tsv; do
+            [ -e "$f" ] || continue
+            awk 'NR>1{print $1"\t"$2}' "$f" >> {output.taxonomy}
+        done
+        """
+
+
+
+
+
+
+# ------------------------------------------------------------
+# 2.  GTDB-Tk on dRep representatives      (after dRep)
+# ------------------------------------------------------------
+rule gtdbtk_reps:
+    """
+    GTDB-Tk classify_wf on the dRep 'winning' genomes.
+    Uses the dereplicated_genomes/ folder created by dRep.
+    Outputs mirror those of gtdbtk_bins but in gtdbtk_reps/.
+    """
+    input:
+        drep_done  = "drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf",
+        reps_dir   = "drep_genomes/{sample}/dereplicated_genomes"
+    output:
+        summary  = "gtdbtk_reps/{sample}/gtdbtk.bac120.summary.tsv",
+        taxonomy = "gtdbtk_reps/{sample}/gtdbtk.tsv",
+        outdir   = directory("gtdbtk_reps/{sample}")
+    threads: 32
+    conda: "gtdbtk_env"
+    shell:
+        """
+        mkdir -p {output.outdir}
+        gtdbtk classify_wf \
+            --genome_dir   {input.reps_dir} \
+            --out_dir      {output.outdir} \
+            --extension    fa \
+            --cpus         {threads}
+
+        echo -e "MAG\tTaxonomy" > {output.taxonomy}
+        for f in {output.outdir}/gtdbtk.*.summary.tsv; do
+            [ -e "$f" ] || continue
+            awk 'NR>1{print $1"\t"$2}' "$f" >> {output.taxonomy}
+        done
+        """
+
+
+
+
+
+# ------------------------------------------------------------
+# 3.  Agreement check  (same species before vs. after dRep?)
+# ------------------------------------------------------------
+rule compare_taxonomy:
+    """
+    Join the two GTDB-Tk tables on MAG ID and flag mismatches.
+    Produces a per-sample detail table + one-line summary.
+    """
+    input:
+        pre  = "gtdbtk_bins/{sample}/gtdbtk.tsv",
+        post = "gtdbtk_reps/{sample}/gtdbtk.tsv"
+    output:
+        table   = "taxonomy_compare/{sample}_agreement.tsv",
+        summary = "taxonomy_compare/{sample}_summary.txt"
+    conda: "gtdbtk_env"
+    script:
+        "../workflow/scripts/compare_taxonomy.py"
+
+rule all_compare_taxonomy:
+    """
+    Aggregate target: run compare_taxonomy for every sample.
+    """
+    input:
+        expand("taxonomy_compare/{sample}_agreement.tsv", sample=SAMPLES)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ----------------------------------------------------------
-#  COVERM   → per-sample coverage tables
-#  BUILD    → merge into wide matrices (one per metric)
-#  Metrics  : reads, rpkm, tpm, relative_abundance, covered_bases,
-#             mean_coverage, median_coverage
+#  COVERM   → per-sample coverage tables (reads → genomes)
 # ----------------------------------------------------------
 
 rule coverm_metrics:
     """
-    Generate a multi-metric coverage table for one sample.
-    Output columns: Genome, count, rpkm, tpm, relative_abundance,
-                    covered_bases, mean
+    @brief
+        Map trimmed paired reads directly to all MAG and reference genomes
+        using CoverM's built-in minimap2 mapper and calculate coverage
+        metrics (count, RPKM, TPM, relative_abundance, breadth, mean depth).
+    @param wildcards:
+        - `sample`: Sample ID (e.g. T03).
+    @input:
+        R1 = "trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
+        R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
+        genome_dir = "bins_all/{sample}"
+    @output:
+        tsv = "metrics/{sample}.coverage.tsv"
     """
     input:
-        bam        = "mapped/{sample}.sort.bam",
+        R1 = "trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
+        R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
         genome_dir = "bins_all/{sample}"
     output:
         tsv = "metrics/{sample}.coverage.tsv"
     threads: 16
-    conda: "coverm_env"                # env with coverm ≥ 0.7.0 + samtools
+    conda: "coverm_env"
     shell:
-        """
+        '''
         mkdir -p metrics
-        # build filtered list of genome FASTAs (non-zero size, ignore placeholder files)
+
+        # Build space-separated list of genome FASTA files (skip placeholder files)
         GENOMES=$(find {input.genome_dir} -name '*.fa' -type f -size +0c \
-                  ! -name '*lowDepth.fa' ! -name '*tooShort.fa' ! -name '*unbinned.fa' | tr '\n' ' ')
-
-        METRICS_TMP=$(mktemp)
-        COUNTS_TMP=$(mktemp)
-        export METRICS_TMP COUNTS_TMP
+                  ! -name '*lowDepth.fa' ! -name '*tooShort.fa' ! -name '*unbinned.fa')
 
         coverm genome \
-            --bam-files {input.bam} \
+            --coupled {input.R1} {input.R2} \
             --genome-fasta-files $GENOMES \
-            --methods rpkm tpm relative_abundance covered_bases mean \
-            --min-covered-fraction 0.90 \
-            --output-file $METRICS_TMP \
-            --threads {threads}
-
-        coverm genome \
-            --bam-files {input.bam} \
-            --genome-fasta-files $GENOMES \
-            --methods count \
+            --methods count rpkm tpm relative_abundance covered_bases mean \
             --min-covered-fraction 0 \
-            --output-file $COUNTS_TMP \
-            --threads {threads}
+            --threads {threads} \
+            --output-file {output.tsv}
+        '''
 
-        python - << 'PY'
-import os, pandas as pd
-metrics = pd.read_csv(os.environ['METRICS_TMP'], sep='\t')
-counts  = pd.read_csv(os.environ['COUNTS_TMP'],  sep='\t')
-merged  = counts.merge(metrics, on='Genome', how='outer').fillna(0)
-merged.to_csv('{output.tsv}', sep='\t', index=False)
-PY
+# ----------------------------------------------------------
+#  Aggregate – build wide matrices & high-level target
+# ----------------------------------------------------------
 
-        rm $METRICS_TMP $COUNTS_TMP
-        """
+rule all_metrics:
+    """
+    Convenience aggregate target that ensures per-sample CoverM tables and
+    the downstream wide matrices exist.
+    """
+    input:
+        expand("metrics/{sample}.coverage.tsv", sample=SAMPLES),
+        "metrics/counts.tsv",
+        "metrics/rpkm.tsv",
+        "metrics/tpm.tsv",
+        "metrics/relative.tsv",
+        "metrics/breadth.tsv",
+        "metrics/coverage.tsv"
 
 rule build_metric_matrices:
     """
-    Collate all sample tables into six-wide matrices stored in metrics/*.tsv.
-    Rows = samples, columns = MAG IDs.
+    Collate all sample CoverM tables into wide matrices (one per metric).
+    Rows = samples, columns = Genome IDs.
     """
     input:
         expand("metrics/{sample}.coverage.tsv", sample=SAMPLES)
@@ -908,7 +1042,8 @@ rule build_metric_matrices:
         breadth  = "metrics/breadth.tsv",
         coverage = "metrics/coverage.tsv"   # mean depth
     run:
-        import pandas as pd, glob, os, pathlib
+        import pandas as pd, glob, pathlib
+
         mats = {
             'count': [],
             'rpkm':  [],
@@ -919,7 +1054,7 @@ rule build_metric_matrices:
         }
         for f in glob.glob("metrics/*.coverage.tsv"):
             df = pd.read_csv(f, sep='\t')
-            sample = pathlib.Path(f).stem.replace(".coverage","")
+            sample = pathlib.Path(f).stem.replace(".coverage", "")
             cols = {k: [c for c in df.columns if c.endswith(suffix)] for k, suffix in {
                 'count': 'Read Count',
                 'rpkm': 'RPKM',
@@ -940,15 +1075,29 @@ rule build_metric_matrices:
         pd.concat(mats['covered_bases'],       axis=1).to_csv(output.breadth,  sep='\t')
         pd.concat(mats['mean'],                axis=1).to_csv(output.coverage, sep='\t')
 
-rule all_metrics:
-    """
-    Convenience aggregate target.
-    """
+
+
+
+# ─────────────────────────────────────────────────────────────
+#  CONTIG-level mean-depth matrix
+# ─────────────────────────────────────────────────────────────
+rule build_contig_depth_matrix:
     input:
-        expand("metrics/{sample}.coverage.tsv", sample=SAMPLES),
-        "metrics/counts.tsv",
-        "metrics/rpkm.tsv",
-        "metrics/tpm.tsv",
-        "metrics/relative.tsv",
-        "metrics/breadth.tsv",
-        "metrics/coverage.tsv"
+        expand("coverage/{sample}.txt", sample=SAMPLES)
+    output:
+        matrix = "coverage/mean_depth.tsv"
+    script:
+        "../workflow/scripts/build_contig_depth_matrix.py"
+
+
+rule all_contig_depth:
+    """
+    Aggregate target: guarantees the wide contig-coverage matrix exists.
+    """
+    input: "coverage/mean_depth.tsv"
+
+
+
+
+
+    

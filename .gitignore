@@ -6,3 +6,8 @@ data
 ref_checkm
 ref_stats
 tmp_demo_sample_distributions.tsv
+.Rproj.user
+CAMISIM
+benchdamic_project
+.vscode
+results

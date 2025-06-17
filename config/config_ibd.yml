@@ -1,0 +1,10 @@
+# Path to CAMISIM directory. This is a placeholder, change it the path where your fork of CAMISIM is located
+camisim_path: CAMISIM
+# Conda frontend to use in Snakemake. Use mamba if you have installed this instead.
+conda_frontend: mamba
+
+# -----------------------------------------------------------------------------
+# GLOBAL OUTPUT
+# -----------------------------------------------------------------------------
+outdir: ../simulated_data/ibd          # <– NEW location for *all* outputs
+dataset_id: IBD                        # <– short tag used in filenames

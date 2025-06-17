@@ -1,0 +1,16 @@
+name: benchdamic_env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.3
+  - bioconductor-benchdamic
+  - bioconductor-summarizedexperiment
+  - bioconductor-multiassayexperiment
+  - bioconductor-summarizedbenchmark
+  - r-tidyverse
+  - r-data.table
+  - r-pheatmap
+  - r-optparse
+  - r-log4r
+  - r-data.table
