@@ -1,16 +1,27 @@
+# envs/benchdamic_env.yml   — June 2025, R 4.2 series
 name: benchdamic_env
 channels:
   - conda-forge
   - bioconda
+  - defaults
 dependencies:
+  # ---- Core R & Bioc ----
   - r-base=4.3
+  - r-biocmanager
+
+  # ---- benchdamic & key wrappers ----
   - bioconductor-benchdamic
-  - bioconductor-summarizedexperiment
-  - bioconductor-multiassayexperiment
-  - bioconductor-summarizedbenchmark
+  - bioconductor-ancombc
+  - bioconductor-deseq2
+  - bioconductor-edger
+  - bioconductor-aldex2
+
+  # ---- Extra wrappers now resolvable with R 4.2 ----
+  - r-corncob
+  - bioconductor-maaslin2
+
+  # ---- Nice-to-have utilities ----
   - r-tidyverse
   - r-data.table
-  - r-pheatmap
-  - r-optparse
-  - r-log4r
-  - r-data.table
+  - bioconductor-biocparallel
+  - r-future

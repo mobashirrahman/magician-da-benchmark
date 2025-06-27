@@ -1100,4 +1100,135 @@ rule all_contig_depth:
 
 
 
-    
+# ─────────────────────────────────────────────────────────────
+#  CREATE SAMPLE METADATA TABLE
+# ─────────────────────────────────────────────────────────────
+rule sample_metadata:
+    """
+    @brief
+        Create a simple two-column metadata table (`sample_metadata.tsv`) that
+        assigns every sample to the Control or Treatment group required by the
+        differential-abundance benchmark.
+    @param SAMPLES:
+        List of sample identifiers derived from the CAMISIM community file
+        header (global variable).
+    @output meta:
+        Tab-separated file with header `sample    group` used by BenchDamic.
+    """
+    output:
+        meta = "sample_metadata.tsv"
+    params:
+        sample_list = " ".join(SAMPLES)
+    shell:
+        """
+        set -euo pipefail
+        echo -e "sample\tgroup" > {output.meta}
+        for sample in {params.sample_list}; do
+            if [[ $sample == C* ]]; then
+                echo -e "$sample\tControl" >> {output.meta}
+            else
+                echo -e "$sample\tTreatment" >> {output.meta}
+            fi
+        done
+        """
+
+# ─────────────────────────────────────────────────────────────
+#  DA BenchDamic
+# ─────────────────────────────────────────────────────────────
+rule da_benchdamic_all:
+    """
+    @brief
+        Run BenchDamic differential abundance analysis on all samples using multiple methods.
+    @param input:
+        - counts: Count matrix TSV file with samples as columns and features as rows.
+        - metadata: Sample metadata TSV file with group assignments.
+    @output:
+        - done_flag: Flag file indicating all analyses are complete.
+        - output_dir: Directory containing all method-specific results.
+    @log:
+        - log: Log file containing stdout and stderr.
+    """
+    input:
+        counts   = "metrics/counts.tsv",
+        metadata = "sample_metadata.tsv"
+    output:
+        done_flag = "da/ALL_methods.done",
+        output_dir = directory("da")
+    log:
+        "logs/da_benchdamic/da_benchdamic_all.log"
+    benchmark:
+        "benchmarks/da_benchdamic_all.bm.txt"
+    conda: "benchdamic_env"
+    shell:
+        """
+        
+        mkdir -p {output.output_dir}
+        mkdir -p $(dirname {log})
+        
+        
+        FILTERED_COUNTS="{output.output_dir}/counts_GC.tsv"
+        awk 'NR==1 || $1 ~ /^GC/' {input.counts} > "$FILTERED_COUNTS"
+        
+        # Run the R script with proper logging
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - Starting BenchDamic differential abundance analysis" > {log} 2>&1
+        
+        Rscript {MAGICIAN_DIR}/workflow/scripts/run_benchdamic_ALL.R \
+                "$FILTERED_COUNTS" {input.metadata} group {output.output_dir} >> {log} 2>&1
+        
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - BenchDamic analysis completed" >> {log} 2>&1
+        
+        # Create the flag file to indicate completion
+        touch {output.done_flag}
+        """
+
+
+# ─────────────────────────────────────────────────────────────
+#  DA BenchDamic
+# ─────────────────────────────────────────────────────────────
+rule da_benchdamic_coverage:
+    """
+    @brief
+        Run BenchDamic differential abundance analysis on all samples using multiple methods.
+    @param input:
+        - counts: Count matrix TSV file with samples as columns and features as rows.
+        - metadata: Sample metadata TSV file with group assignments.
+    @output:
+        - done_flag: Flag file indicating all analyses are complete.
+        - output_dir: Directory containing all method-specific results.
+    @log:
+        - log: Log file containing stdout and stderr.
+    """
+    input:
+        counts   = "coverage/mean_depth.tsv",
+        metadata = "sample_metadata.tsv"
+    output:
+        done_flag = "da/coverage/ALL_methods.done",
+        output_dir = directory("da/coverage")
+    log:
+        "logs/da_benchdamic/da_benchdamic_coverage.log"
+    benchmark:
+        "benchmarks/da_benchdamic_coverage.bm.txt"
+    conda: "benchdamic_env"
+    shell:
+        """
+        # Create output directory if it doesn't exist
+        mkdir -p {output.output_dir}
+        mkdir -p $(dirname {log})
+        
+        # Filter counts table: keep header and rows where Genome starts with "GC"
+        FILTERED_COUNTS="{output.output_dir}/counts_GC.tsv"
+        awk 'NR==1 || $1 ~ /^GC/' {input.counts} > "$FILTERED_COUNTS"
+        
+        # Run the R script with proper logging
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - Starting BenchDamic differential abundance analysis" > {log} 2>&1
+        
+        Rscript {MAGICIAN_DIR}/workflow/scripts/run_benchdamic_ALL.R \
+                "$FILTERED_COUNTS" {input.metadata} group {output.output_dir} >> {log} 2>&1
+        
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - BenchDamic analysis completed" >> {log} 2>&1
+        
+        # Create the flag file to indicate completion
+        touch {output.done_flag}
+        """
+
+
