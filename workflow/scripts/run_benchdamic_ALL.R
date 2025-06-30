@@ -23,6 +23,11 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 cts  <- read.delim(cts_file, row.names = 1, check.names = FALSE, na.strings = c("", "NA"))
 cts[is.na(cts)] <- 0
 cts  <- data.matrix(cts)
+
+# Convert to integers for DESeq2 compatibility (some metrics like coverage are decimals)
+# Round and convert to integers - this is necessary for DESeq2 and other count-based methods
+cts <- round(cts)
+storage.mode(cts) <- "integer"
 meta <- read.delim(meta_file, row.names = 1, check.names = FALSE)
 
 common <- intersect(colnames(cts), rownames(meta))
@@ -57,11 +62,35 @@ run_and_export <- function(fun, mname, extras) {
                   error = function(e) {cat("   ✗ ", mname, " failed: ", conditionMessage(e), "\n", sep = ""); NULL})
   if (is.null(res)) return(NULL)
   out_csv <- file.path(out_dir, paste0("DA_", mname, ".csv"))
-  ok <- FALSE
-  try({write.csv(benchdamic::exportDA(res, method = mname), out_csv, row.names = FALSE); ok <- TRUE}, silent = TRUE)
-  if (!ok && !is.null(res$pValMat)) {write.csv(res$pValMat, out_csv); ok <- TRUE}
-  if (!ok) write.csv(data.frame(), out_csv)
-  cat("   ✓ ", mname, " done → ", out_csv, "\n", sep = "")
+  
+  # Enhanced export with log fold change
+  export_df <- NULL
+  
+  # Extract p-values (always available)
+  if (!is.null(res$pValMat)) {
+    export_df <- res$pValMat
+  } else {
+    export_df <- data.frame(rawP = NA, adjP = NA)
+  }
+  
+  # Extract log fold changes if available
+  if (!is.null(res$statInfo) && "logFC" %in% colnames(res$statInfo)) {
+    # Ensure same row order and add logFC
+    if (nrow(res$statInfo) == nrow(export_df) && 
+        all(rownames(res$statInfo) == rownames(export_df))) {
+      export_df$logFC <- res$statInfo$logFC
+    }
+  } else if (!is.null(res$statInfo) && "log2FoldChange" %in% colnames(res$statInfo)) {
+    # For DESeq2-style results
+    if (nrow(res$statInfo) == nrow(export_df) && 
+        all(rownames(res$statInfo) == rownames(export_df))) {
+      export_df$logFC <- res$statInfo$log2FoldChange
+    }
+  }
+  
+  # Write the results
+  write.csv(export_df, out_csv, row.names = TRUE)
+  cat("   ✓ ", mname, " done → ", out_csv, " (columns: ", paste(colnames(export_df), collapse = ", "), ")\n", sep = "")
   invisible(res)
 }
 
