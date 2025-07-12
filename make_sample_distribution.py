@@ -7,7 +7,7 @@ make_design.py  –  realistic CAMISIM abundance table + truth map
 • Baseline weight per genome ~ Γ(shape=2, scale=5)  → median ~9
 • 4 genomes are differential: multiplied by 2×, 4× or 8×
 • Each sample pulls a random library size 15–60 M reads
-  (written to a separate metadata file – CAMISIM’s read_depth.txt)
+  (written to a separate metadata file – CAMISIM's read_depth.txt)
 Outputs
   - sample_distributions.tsv          (for CAMISIM --metadata)
   - truth_table.csv                   (is_DA, true_log2FC, baseline, fc)
@@ -21,13 +21,14 @@ import numpy as np
 reference_dir   = pathlib.Path("data/camisim_toy")       # 24 genome FASTAs
 n_controls      = 10
 n_treats        = 10
+n_replicates    = 3  # number of technical/biological replicates per sample
 gamma_shape     = 2
 gamma_scale     = 5
 fold_choices    = [2, 4, 8]      # sampled w/out replacement if possible
-n_differential  = 4
+n_differential  = 14
 depth_min, depth_max = 15e6, 60e6   # per-sample read depth range
 seed            = 42
-out_prefix      = pathlib.Path("data/camisim_realistic")
+out_prefix      = pathlib.Path("data/camisim_realistic_reps")
 # ─────────────────────────────────────────────────────────────────────
 
 rng = np.random.default_rng(seed)
@@ -52,8 +53,15 @@ enriched_wt = baseline_wt.copy()
 enriched_wt[da_idx] = baseline_wt[da_idx] * folds
 
 # 4 ▸ library sizes per sample
-samples_all = [f"C{str(i).zfill(2)}" for i in range(1, n_controls+1)] + \
-              [f"T{str(i).zfill(2)}" for i in range(1, n_treats+1)]
+samples_base = [f"C{str(i).zfill(2)}" for i in range(1, n_controls+1)] + \
+               [f"T{str(i).zfill(2)}" for i in range(1, n_treats+1)]
+
+# explode base IDs into replicate-specific IDs, e.g. C01_rep01 … C01_rep05
+samples_all = [f"{sid}_rep{str(r).zfill(2)}"
+               for sid in samples_base
+               for r in range(1, n_replicates + 1)]
+
+# draw one library size per replicate
 depths = rng.uniform(depth_min, depth_max, size=len(samples_all)).round().astype(int)
 
 # 5 ▸ write read_depth.txt (CAMISIM takes this directly)
@@ -68,8 +76,8 @@ with (out_prefix / "sample_distributions.tsv").open("w", newline="") as fh:
     w.writerow(header)
     for i, g in enumerate(genomes):
         weights = (
-            [baseline_wt[i]] * n_controls +
-            [enriched_wt[i] if i in da_idx else baseline_wt[i]] * n_treats
+            [baseline_wt[i]] * n_controls * n_replicates +
+            [enriched_wt[i] if i in da_idx else baseline_wt[i]] * n_treats * n_replicates
         )
         w.writerow([g.resolve(), "chromosome", *weights])
 
