@@ -1,0 +1,4 @@
+genomes	abundance	seq_type	C01	T01
+/path/to/genome1.fa	0.5	chromosome	10	20
+/path/to/genome2.fa	0.3	chromosome	15	25
+/path/to/genome3.fa	0.2	chromosome	5	10 
