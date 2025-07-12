@@ -1,4 +1,4 @@
 # Path to CAMISIM directory. This is a placeholder, change it the path where your fork of CAMISIM is located
-camisim_path: CAMISIM
+camisim_path: /home/mrahman/magician/CAMISIM
 # Conda frontend to use in Snakemake. Use mamba if you have installed this instead.
 conda_frontend: mamba

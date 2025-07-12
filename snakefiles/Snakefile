@@ -303,6 +303,7 @@ rule run_camisim:
         concat_results_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
     conda: "cami_env_py2_fixed"
     resources: camisim_jobs=1
+    shadow: "minimal"
     shell:
         '''
         rm -rf camisim_out/{wildcards.sample}
@@ -327,7 +328,7 @@ rule cleanup_camisim:
     """
     input:
         camisim_resultdir = "camisim_out/{sample}",
-        camisim_result_check = "camisim_out/{sample}/simulated_{sample}_r1.gz"  # check if this has updated
+        camisim_result_check = "camisim_out/{sample}/simulated_{sample}_r1.gz" 
     output:
         camisim_check_old = "camisim_old_runs/{sample}/{sample}"
     shell: '''
@@ -841,133 +842,6 @@ rule make_bin_summary:
          '''
 
 
-# ------------------------------------------------------------
-# 1.  GTDB-Tk on all MetaBAT2 bins        (before dRep)
-# ------------------------------------------------------------
-rule gtdbtk_bins:
-    """
-    GTDB-Tk classify_wf on all MetaBAT2 bins for one sample.
-    ──────────────────────────────────────────────────────────
-    Outputs:
-        gtdbtk_bins/{sample}/gtdbtk.bac120.summary.tsv
-        gtdbtk_bins/{sample}/gtdbtk.arc122.summary.tsv
-        gtdbtk_bins/{sample}/gtdbtk.tsv    # MAG  ↔  taxonomy
-    """
-    input:
-        bins_prefix = "metabat2/{sample}/{sample}.bin"
-    output:
-        summary  = "gtdbtk_bins/{sample}/gtdbtk.bac120.summary.tsv",
-        taxonomy = "gtdbtk_bins/{sample}/gtdbtk.tsv",
-        outdir   = directory("gtdbtk_bins/{sample}")
-    threads: 32
-    conda: "gtdbtk_env"
-    shell:
-        """
-        mkdir -p {output.outdir}
-        BIN_DIR=$(dirname {input.bins_prefix})
-        gtdbtk classify_wf \
-            --genome_dir   $BIN_DIR \
-            --out_dir      {output.outdir} \
-            --extension    fa \
-            --cpus         {threads}
-
-        echo -e "MAG\tTaxonomy" > {output.taxonomy}
-        for f in {output.outdir}/gtdbtk.*.summary.tsv; do
-            [ -e "$f" ] || continue
-            awk 'NR>1{print $1"\t"$2}' "$f" >> {output.taxonomy}
-        done
-        """
-
-
-
-
-
-
-# ------------------------------------------------------------
-# 2.  GTDB-Tk on dRep representatives      (after dRep)
-# ------------------------------------------------------------
-rule gtdbtk_reps:
-    """
-    GTDB-Tk classify_wf on the dRep 'winning' genomes.
-    Uses the dereplicated_genomes/ folder created by dRep.
-    Outputs mirror those of gtdbtk_bins but in gtdbtk_reps/.
-    """
-    input:
-        drep_done  = "drep_genomes/{sample}/figures/Secondary_clustering_dendrograms.pdf",
-        reps_dir   = "drep_genomes/{sample}/dereplicated_genomes"
-    output:
-        summary  = "gtdbtk_reps/{sample}/gtdbtk.bac120.summary.tsv",
-        taxonomy = "gtdbtk_reps/{sample}/gtdbtk.tsv",
-        outdir   = directory("gtdbtk_reps/{sample}")
-    threads: 32
-    conda: "gtdbtk_env"
-    shell:
-        """
-        mkdir -p {output.outdir}
-        gtdbtk classify_wf \
-            --genome_dir   {input.reps_dir} \
-            --out_dir      {output.outdir} \
-            --extension    fa \
-            --cpus         {threads}
-
-        echo -e "MAG\tTaxonomy" > {output.taxonomy}
-        for f in {output.outdir}/gtdbtk.*.summary.tsv; do
-            [ -e "$f" ] || continue
-            awk 'NR>1{print $1"\t"$2}' "$f" >> {output.taxonomy}
-        done
-        """
-
-
-
-
-
-# ------------------------------------------------------------
-# 3.  Agreement check  (same species before vs. after dRep?)
-# ------------------------------------------------------------
-rule compare_taxonomy:
-    """
-    Join the two GTDB-Tk tables on MAG ID and flag mismatches.
-    Produces a per-sample detail table + one-line summary.
-    """
-    input:
-        pre  = "gtdbtk_bins/{sample}/gtdbtk.tsv",
-        post = "gtdbtk_reps/{sample}/gtdbtk.tsv"
-    output:
-        table   = "taxonomy_compare/{sample}_agreement.tsv",
-        summary = "taxonomy_compare/{sample}_summary.txt"
-    conda: "gtdbtk_env"
-    script:
-        "../workflow/scripts/compare_taxonomy.py"
-
-rule all_compare_taxonomy:
-    """
-    Aggregate target: run compare_taxonomy for every sample.
-    """
-    input:
-        expand("taxonomy_compare/{sample}_agreement.tsv", sample=SAMPLES)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ----------------------------------------------------------
 #  COVERM   → per-sample coverage tables (reads → genomes)
 # ----------------------------------------------------------
@@ -999,7 +873,7 @@ rule coverm_metrics:
         '''
         mkdir -p metrics
 
-        # Build space-separated list of genome FASTA files (skip placeholder files)
+        # Build space-separated list of genome FASTA files
         GENOMES=$(find {input.genome_dir} -name '*.fa' -type f -size +0c \
                   ! -name '*lowDepth.fa' ! -name '*tooShort.fa' ! -name '*unbinned.fa')
 
