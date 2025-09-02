@@ -1,0 +1,508 @@
+(magician_base) mrahman@core5:~/magician$ conda activate magician_base && python /home/mrahman/magician/download_mooh_representative_genomes.py --email mobashirrahman@gmail.com --min-abundance 0.0 --max-per-species 1
+Found 223 taxa above 0.0% abundance threshold
+Extracted 201 valid species names
+[1/201] Processing Rothia mucilaginosa (10.46%)
+· Rothia mucilaginosa: already present, skipping
+[2/201] Processing Streptococcus oralis (7.54%)
+· Streptococcus oralis: already present, skipping
+[3/201] Processing Streptococcus mitis (4.17%)
+· Streptococcus mitis: already present, skipping
+[4/201] Processing Streptococcus parasanguinis (2.84%)
+· Streptococcus parasanguinis: already present, skipping
+[5/201] Processing Neisseria subflava (2.48%)
+· Neisseria subflava: already present, skipping
+[6/201] Processing Brevundimonas diminuta (2.27%)
+· Brevundimonas diminuta: already present, skipping
+[7/201] Processing Stenotrophomonas maltophilia (2.19%)
+! Stenotrophomonas maltophilia: no public FTP path for GCA_052377565.1
+· Stenotrophomonas maltophilia: already present, skipping
+[8/201] Processing Staphylococcus aureus (2.13%)
+! Staphylococcus aureus: no public FTP path for GCA_052377705.1
+· Staphylococcus aureus: already present, skipping
+[9/201] Processing Streptococcus gordonii (2.07%)
+· Streptococcus gordonii: already present, skipping
+[10/201] Processing Streptococcus australis (1.96%)
+· Streptococcus australis: already present, skipping
+[11/201] Processing Streptococcus salivarius (1.56%)
+· Streptococcus salivarius: already present, skipping
+[12/201] Processing Veillonella rogosae (1.54%)
+· Veillonella rogosae: already present, skipping
+[13/201] Processing Acinetobacter johnsonii (1.51%)
+· Acinetobacter johnsonii: already present, skipping
+[14/201] Processing Enterobacter hormaechei (1.43%)
+· Enterobacter hormaechei: already present, skipping
+[15/201] Processing Veillonella parvula (1.41%)
+· Veillonella parvula: already present, skipping
+[16/201] Processing Actinomyces oris (1.39%)
+· Actinomyces oris: already present, skipping
+[17/201] Processing Streptococcus sanguinis (1.30%)
+· Streptococcus sanguinis: already present, skipping
+[18/201] Processing Actinomyces sp_oral_taxon_448 (1.28%)
+  No complete genomes found for Actinomyces sp_oral_taxon_448, searching for any representative genome...
+· Actinomyces sp_oral_taxon_448: already present, skipping
+[19/201] Processing Brevundimonas diminuta (1.13%)
+· Brevundimonas diminuta: already present, skipping
+[20/201] Processing Stenotrophomonas maltophilia (0.93%)
+! Stenotrophomonas maltophilia: no public FTP path for GCA_052377565.1
+· Stenotrophomonas maltophilia: already present, skipping
+[21/201] Processing Stenotrophomonas maltophilia (0.91%)
+! Stenotrophomonas maltophilia: no public FTP path for GCA_052377565.1
+· Stenotrophomonas maltophilia: already present, skipping
+[22/201] Processing Schaalia odontolytica (0.86%)
+· Schaalia odontolytica: already present, skipping
+[23/201] Processing Actinomyces dentalis (0.85%)
+  No complete genomes found for Actinomyces dentalis, searching for any representative genome...
+· Actinomyces dentalis: already present, skipping
+[24/201] Processing Acinetobacter lwoffii (0.79%)
+· Acinetobacter lwoffii: already present, skipping
+[25/201] Processing Veillonella dispar (0.76%)
+· Veillonella dispar: already present, skipping
+[26/201] Processing Porphyromonas bobii (0.75%)
+  No complete genomes found for Porphyromonas bobii, searching for any representative genome...
+· Porphyromonas bobii: already present, skipping
+[27/201] Processing Rhizobium pusense (0.73%)
+· Rhizobium pusense: already present, skipping
+[28/201] Processing Moraxella osloensis (0.70%)
+· Moraxella osloensis: already present, skipping
+[29/201] Processing Streptococcus vestibularis (0.69%)
+· Streptococcus vestibularis: already present, skipping
+[30/201] Processing Janibacter hoylei (0.68%)
+  No complete genomes found for Janibacter hoylei, searching for any representative genome...
+· Janibacter hoylei: already present, skipping
+[31/201] Processing Granulicatella adiacens (0.65%)
+· Granulicatella adiacens: already present, skipping
+[32/201] Processing Actinomyces sp_ICM47 (0.65%)
+  No complete genomes found for Actinomyces sp_ICM47, searching for any representative genome...
+· Actinomyces sp_ICM47: already present, skipping
+[33/201] Processing Rhizobium oryzihabitans (0.60%)
+· Rhizobium oryzihabitans: already present, skipping
+[34/201] Processing Delftia acidovorans (0.60%)
+· Delftia acidovorans: already present, skipping
+[35/201] Processing Neisseria sicca (0.56%)
+· Neisseria sicca: already present, skipping
+[36/201] Processing Kocuria rhizophila (0.55%)
+· Kocuria rhizophila: already present, skipping
+[37/201] Processing Brevundimonas diminuta (0.55%)
+· Brevundimonas diminuta: already present, skipping
+[38/201] Processing Chryseobacterium indologenes (0.52%)
+· Chryseobacterium indologenes: already present, skipping
+[39/201] Processing Streptococcus intermedius (0.51%)
+· Streptococcus intermedius: already present, skipping
+[40/201] Processing Staphylococcus warneri (0.50%)
+· Staphylococcus warneri: already present, skipping
+[41/201] Processing Pseudomonas putida (0.49%)
+· Pseudomonas putida: already present, skipping
+[42/201] Processing Enterococcus faecalis (0.47%)
+· Enterococcus faecalis: already present, skipping
+[43/201] Processing Rothia aeria (0.47%)
+· Rothia aeria: already present, skipping
+[44/201] Processing Abiotrophia defectiva (0.47%)
+· Abiotrophia defectiva: already present, skipping
+[45/201] Processing Rothia mucilaginosa (0.45%)
+· Rothia mucilaginosa: already present, skipping
+[46/201] Processing Haemophilus parainfluenzae (0.44%)
+· Haemophilus parainfluenzae: already present, skipping
+[47/201] Processing Staphylococcus epidermidis (0.44%)
+· Staphylococcus epidermidis: already present, skipping
+[48/201] Processing Stenotrophomonas maltophilia (0.41%)
+! Stenotrophomonas maltophilia: no public FTP path for GCA_052377565.1
+· Stenotrophomonas maltophilia: already present, skipping
+[49/201] Processing Stenotrophomonas indicatrix (0.39%)
+· Stenotrophomonas indicatrix: already present, skipping
+[50/201] Processing Achromobacter mucicolens (0.37%)
+· Achromobacter mucicolens: already present, skipping
+[51/201] Processing Corynebacterium accolens (0.37%)
+· Corynebacterium accolens: already present, skipping
+[52/201] Processing Sphingobium yanoikuyae (0.34%)
+· Sphingobium yanoikuyae: already present, skipping
+[53/201] Processing Lautropia mirabilis (0.33%)
+· Lautropia mirabilis: already present, skipping
+[54/201] Processing Candidatus_Nanosynsacchari sp_TM7_ANC_38_39_G1_1 (0.33%)
+  No complete genomes found for Candidatus_Nanosynsacchari sp_TM7_ANC_38_39_G1_1, searching for any representative genome...
+· Candidatus_Nanosynsacchari sp_TM7_ANC_38_39_G1_1: already present, skipping
+[55/201] Processing Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_brachy (0.33%)
+  No complete genomes found for Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_brachy, searching for any representative genome...
+  No representative genomes found, searching for any genome...
+! Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_brachy: No complete genomes found
+[56/201] Processing Acinetobacter guillouiae (0.33%)
+· Acinetobacter guillouiae: already present, skipping
+[57/201] Processing Pseudomonas fulva (0.32%)
+· Pseudomonas fulva: already present, skipping
+[58/201] Processing Brevundimonas aurantiaca (0.32%)
+  No complete genomes found for Brevundimonas aurantiaca, searching for any representative genome...
+· Brevundimonas aurantiaca: already present, skipping
+[59/201] Processing Pseudomonas atacamensis (0.32%)
+· Pseudomonas atacamensis: already present, skipping
+[60/201] Processing Gemella sanguinis (0.31%)
+· Gemella sanguinis: already present, skipping
+[61/201] Processing Acinetobacter junii (0.31%)
+· Acinetobacter junii: already present, skipping
+[62/201] Processing Neisseria sicca (0.31%)
+· Neisseria sicca: already present, skipping
+[63/201] Processing Corynebacterium durum (0.31%)
+· Corynebacterium durum: already present, skipping
+[64/201] Processing Actinomyces naeslundii (0.28%)
+· Actinomyces naeslundii: already present, skipping
+[65/201] Processing Brevundimonas mediterranea (0.28%)
+· Brevundimonas mediterranea: already present, skipping
+[66/201] Processing Stenotrophomonas maltophilia (0.27%)
+! Stenotrophomonas maltophilia: no public FTP path for GCA_052377565.1
+· Stenotrophomonas maltophilia: already present, skipping
+[67/201] Processing Actinobaculum sp_oral_taxon_183 (0.27%)
+  No complete genomes found for Actinobaculum sp_oral_taxon_183, searching for any representative genome...
+· Actinobaculum sp_oral_taxon_183: already present, skipping
+[68/201] Processing Haemophilus haemolyticus (0.27%)
+· Haemophilus haemolyticus: already present, skipping
+[69/201] Processing Haemophilus sputorum (0.26%)
+  No complete genomes found for Haemophilus sputorum, searching for any representative genome...
+· Haemophilus sputorum: already present, skipping
+[70/201] Processing Klebsiella michiganensis (0.26%)
+· Klebsiella michiganensis: already present, skipping
+[71/201] Processing Actinomyces massiliensis (0.26%)
+· Actinomyces massiliensis: already present, skipping
+[72/201] Processing Pseudoxanthomonas mexicana (0.26%)
+· Pseudoxanthomonas mexicana: already present, skipping
+[73/201] Processing Gemella haemolysans (0.25%)
+· Gemella haemolysans: already present, skipping
+[74/201] Processing Stenotrophomonas maltophilia (0.25%)
+! Stenotrophomonas maltophilia: no public FTP path for GCA_052377565.1
+· Stenotrophomonas maltophilia: already present, skipping
+[75/201] Processing Aggregatibacter kilianii (0.25%)
+  No complete genomes found for Aggregatibacter kilianii, searching for any representative genome...
+✓ Aggregatibacter kilianii: GCF_963554095.1 [○ Unknown]
+[76/201] Processing Actinomyces oris (0.25%)
+· Actinomyces oris: already present, skipping
+[77/201] Processing Actinomyces sp_ph3 (0.25%)
+  No complete genomes found for Actinomyces sp_ph3, searching for any representative genome...
+✓ Actinomyces sp_ph3: GCF_000308055.1 [○ Unknown]
+[78/201] Processing Streptococcus sp_F0442 (0.25%)
+  No complete genomes found for Streptococcus sp_F0442, searching for any representative genome...
+✓ Streptococcus sp_F0442: GCF_000314795.2 [○ Unknown]
+[79/201] Processing Actinomyces gerencseriae (0.24%)
+  No complete genomes found for Actinomyces gerencseriae, searching for any representative genome...
+✓ Actinomyces gerencseriae: GCA_965242215.1 [○ Unknown]
+[80/201] Processing Sphingobacterium spiritivorum (0.24%)
+· Sphingobacterium spiritivorum: already present, skipping
+[81/201] Processing Pseudomonas juntendi (0.24%)
+· Pseudomonas juntendi: already present, skipping
+[82/201] Processing Streptococcus anginosus (0.23%)
+· Streptococcus anginosus: already present, skipping
+[83/201] Processing Streptococcus rubneri (0.22%)
+· Streptococcus rubneri: already present, skipping
+[84/201] Processing Mesorhizobium hungaricum (0.21%)
+  No complete genomes found for Mesorhizobium hungaricum, searching for any representative genome...
+✓ Mesorhizobium hungaricum: GCF_001705425.1 [○ Unknown]
+[85/201] Processing Neisseria elongata (0.21%)
+· Neisseria elongata: already present, skipping
+[86/201] Processing Schaalia meyeri (0.21%)
+· Schaalia meyeri: already present, skipping
+[87/201] Processing Micrococcus luteus (0.21%)
+· Micrococcus luteus: already present, skipping
+[88/201] Processing Acinetobacter radioresistens (0.19%)
+· Acinetobacter radioresistens: already present, skipping
+[89/201] Processing Neisseria sp_oral_taxon_014 (0.19%)
+  No complete genomes found for Neisseria sp_oral_taxon_014, searching for any representative genome...
+✓ Neisseria sp_oral_taxon_014: GCF_905372545.1 [○ Unknown]
+[90/201] Processing Chryseobacterium phocaeense (0.18%)
+  No complete genomes found for Chryseobacterium phocaeense, searching for any representative genome...
+✓ Chryseobacterium phocaeense: GCF_900169075.1 [○ Unknown]
+[91/201] Processing Candida albicans (0.18%)
+· Candida albicans: already present, skipping
+[92/201] Processing Capnocytophaga leadbetteri (0.16%)
+· Capnocytophaga leadbetteri: already present, skipping
+[93/201] Processing Gemella haemolysans (0.16%)
+· Gemella haemolysans: already present, skipping
+[94/201] Processing Actinomyces sp_HMT897 (0.16%)
+· Actinomyces sp_HMT897: already present, skipping
+[95/201] Processing Haemophilus parahaemolyticus (0.16%)
+· Haemophilus parahaemolyticus: already present, skipping
+[96/201] Processing Pseudomonas putida (0.16%)
+· Pseudomonas putida: already present, skipping
+[97/201] Processing Schaalia odontolytica (0.16%)
+· Schaalia odontolytica: already present, skipping
+[98/201] Processing Veillonella atypica (0.15%)
+· Veillonella atypica: already present, skipping
+[99/201] Processing Pseudomonas lactis (0.15%)
+· Pseudomonas lactis: already present, skipping
+[100/201] Processing Streptococcus cristatus (0.15%)
+· Streptococcus cristatus: already present, skipping
+[101/201] Processing Pseudomonas proteolytica (0.15%)
+· Pseudomonas proteolytica: already present, skipping
+[102/201] Processing Pseudomonas aeruginosa (0.15%)
+! Pseudomonas aeruginosa: no public FTP path for GCA_052377975.1
+! Pseudomonas aeruginosa: no public FTP path for GCA_052377575.1
+[103/201] Processing Abiotrophia sp_HMSC24B09 (0.15%)
+  No complete genomes found for Abiotrophia sp_HMSC24B09, searching for any representative genome...
+✓ Abiotrophia sp_HMSC24B09: GCF_905372995.1 [○ Unknown]
+[104/201] Processing Olsenella sp_oral_taxon_807 (0.14%)
+· Olsenella sp_oral_taxon_807: already present, skipping
+[105/201] Processing Acinetobacter ursingii (0.14%)
+· Acinetobacter ursingii: already present, skipping
+[106/201] Processing Staphylococcus haemolyticus (0.14%)
+· Staphylococcus haemolyticus: already present, skipping
+[107/201] Processing Rhodococcus qingshengii (0.14%)
+· Rhodococcus qingshengii: already present, skipping
+[108/201] Processing Actinomyces graevenitzii (0.14%)
+· Actinomyces graevenitzii: already present, skipping
+[109/201] Processing Candidatus_Nanogingivalis gingivitcus (0.13%)
+  No complete genomes found for Candidatus_Nanogingivalis gingivitcus, searching for any representative genome...
+✓ Candidatus_Nanogingivalis gingivitcus: GCA_963530965.1 [○ Unknown]
+[110/201] Processing Streptococcus constellatus (0.13%)
+· Streptococcus constellatus: already present, skipping
+[111/201] Processing Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_352 (0.13%)
+  No complete genomes found for Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_352, searching for any representative genome...
+  No representative genomes found, searching for any genome...
+! Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_352: No complete genomes found
+[112/201] Processing Lancefieldella rimae (0.13%)
+  No complete genomes found for Lancefieldella rimae, searching for any representative genome...
+✓ Lancefieldella rimae: GCF_965240815.1 [○ Unknown]
+[113/201] Processing Dialister invisus (0.13%)
+  No complete genomes found for Dialister invisus, searching for any representative genome...
+✓ Dialister invisus: GCA_052357885.1 [○ Unknown]
+[114/201] Processing Agrobacterium tomkonis (0.13%)
+  No complete genomes found for Agrobacterium tomkonis, searching for any representative genome...
+✓ Agrobacterium tomkonis: GCF_020218035.1 [○ Unknown]
+[115/201] Processing Gemella morbillorum (0.13%)
+· Gemella morbillorum: already present, skipping
+[116/201] Processing Prevotella melaninogenica (0.13%)
+· Prevotella melaninogenica: already present, skipping
+[117/201] Processing Parvimonas micra (0.12%)
+· Parvimonas micra: already present, skipping
+[118/201] Processing Chryseobacterium culicis (0.12%)
+  No complete genomes found for Chryseobacterium culicis, searching for any representative genome...
+✓ Chryseobacterium culicis: GCA_050284845.1 [○ Unknown]
+[119/201] Processing Chryseobacterium scophthalmum (0.12%)
+· Chryseobacterium scophthalmum: already present, skipping
+[120/201] Processing Haemophilus haemolyticus (0.12%)
+· Haemophilus haemolyticus: already present, skipping
+[121/201] Processing Staphylococcus argenteus (0.11%)
+· Staphylococcus argenteus: already present, skipping
+[122/201] Processing Candidatus_Nanosynbacter sp_HMT_352 (0.11%)
+· Candidatus_Nanosynbacter sp_HMT_352: already present, skipping
+[123/201] Processing Cardiobacterium hominis (0.11%)
+· Cardiobacterium hominis: already present, skipping
+[124/201] Processing Arachnia rubra (0.11%)
+· Arachnia rubra: already present, skipping
+[125/201] Processing Schaalia meyeri (0.11%)
+· Schaalia meyeri: already present, skipping
+[126/201] Processing Pseudomonas putida (0.11%)
+· Pseudomonas putida: already present, skipping
+[127/201] Processing Kocuria palustris (0.10%)
+· Kocuria palustris: already present, skipping
+[128/201] Processing Staphylococcus saprophyticus (0.10%)
+· Staphylococcus saprophyticus: already present, skipping
+[129/201] Processing Actinomyces johnsonii (0.10%)
+  No complete genomes found for Actinomyces johnsonii, searching for any representative genome...
+✓ Actinomyces johnsonii: GCF_052112905.1 [○ Unknown]
+[130/201] Processing Corynebacterium bovis (0.09%)
+· Corynebacterium bovis: already present, skipping
+[131/201] Processing Microbacterium maritypicum (0.09%)
+· Microbacterium maritypicum: already present, skipping
+[132/201] Processing Oribacterium sinus (0.09%)
+  No complete genomes found for Oribacterium sinus, searching for any representative genome...
+✓ Oribacterium sinus: GCA_965244335.1 [○ Unknown]
+[133/201] Processing Capnocytophaga gingivalis (0.08%)
+· Capnocytophaga gingivalis: already present, skipping
+[134/201] Processing Scardovia wiggsiae (0.08%)
+· Scardovia wiggsiae: already present, skipping
+[135/201] Processing Lancefieldella parvula (0.08%)
+· Lancefieldella parvula: already present, skipping
+[136/201] Processing Klebsiella grimontii (0.08%)
+· Klebsiella grimontii: already present, skipping
+[137/201] Processing Veillonella sp_3627 (0.08%)
+  No complete genomes found for Veillonella sp_3627, searching for any representative genome...
+✓ Veillonella sp_3627: GCF_003992195.1 [○ Unknown]
+[138/201] Processing Kocuria salsicia (0.08%)
+  No complete genomes found for Kocuria salsicia, searching for any representative genome...
+✓ Kocuria salsicia: GCF_040686715.1 [○ Unknown]
+[139/201] Processing Lancefieldella parvula (0.08%)
+· Lancefieldella parvula: already present, skipping
+[140/201] Processing Stenotrophomonas rhizophila (0.08%)
+· Stenotrophomonas rhizophila: already present, skipping
+[141/201] Processing Kocuria carniphila (0.08%)
+  No complete genomes found for Kocuria carniphila, searching for any representative genome...
+✓ Kocuria carniphila: GCF_042647725.1 [○ Unknown]
+[142/201] Processing Cutibacterium acnes (0.07%)
+· Cutibacterium acnes: already present, skipping
+[143/201] Processing Pseudomonas brenneri (0.07%)
+· Pseudomonas brenneri: already present, skipping
+[144/201] Processing Serratia marcescens (0.07%)
+· Serratia marcescens: already present, skipping
+[145/201] Processing Selenomonas noxia (0.07%)
+  No complete genomes found for Selenomonas noxia, searching for any representative genome...
+✓ Selenomonas noxia: GCF_965241795.1 [○ Unknown]
+[146/201] Processing Pseudomonas qingdaonensis (0.07%)
+· Pseudomonas qingdaonensis: already present, skipping
+[147/201] Processing Acinetobacter parvus (0.07%)
+  No complete genomes found for Acinetobacter parvus, searching for any representative genome...
+✓ Acinetobacter parvus: GCA_046347415.1 [○ Unknown]
+[148/201] Processing Pseudomonas rustica (0.07%)
+· Pseudomonas rustica: already present, skipping
+[149/201] Processing Acinetobacter pittii (0.07%)
+· Acinetobacter pittii: already present, skipping
+[150/201] Processing Streptococcus gordonii (0.06%)
+· Streptococcus gordonii: already present, skipping
+[151/201] Processing Pseudomonas luteola (0.06%)
+· Pseudomonas luteola: already present, skipping
+[152/201] Processing Enterobacter ludwigii (0.06%)
+· Enterobacter ludwigii: already present, skipping
+[153/201] Processing Arachnia propionica (0.06%)
+· Arachnia propionica: already present, skipping
+[154/201] Processing Actinomyces israelii (0.06%)
+· Actinomyces israelii: already present, skipping
+[155/201] Processing Tsukamurella pulmonis (0.06%)
+· Tsukamurella pulmonis: already present, skipping
+[156/201] Processing Porphyromonas endodontalis (0.06%)
+· Porphyromonas endodontalis: already present, skipping
+[157/201] Processing Neisseria bacilliformis (0.06%)
+· Neisseria bacilliformis: already present, skipping
+[158/201] Processing Solobacterium moorei (0.06%)
+· Solobacterium moorei: already present, skipping
+[159/201] Processing Pauljensenia hongkongensis (0.06%)
+  No complete genomes found for Pauljensenia hongkongensis, searching for any representative genome...
+✓ Pauljensenia hongkongensis: GCF_001746855.1 [○ Unknown]
+[160/201] Processing Klebsiella pneumoniae (0.05%)
+· Klebsiella pneumoniae: already present, skipping
+[161/201] Processing Candidatus_Nanosynbacter lyticus (0.05%)
+· Candidatus_Nanosynbacter lyticus: already present, skipping
+[162/201] Processing Mogibacterium diversum (0.05%)
+· Mogibacterium diversum: already present, skipping
+[163/201] Processing Streptococcus infantis (0.05%)
+· Streptococcus infantis: already present, skipping
+[164/201] Processing Peptostreptococcus stomatis (0.05%)
+  No complete genomes found for Peptostreptococcus stomatis, searching for any representative genome...
+✓ Peptostreptococcus stomatis: GCF_052173935.1 [○ Unknown]
+[165/201] Processing Oribacterium sp_oral_taxon_078 (0.05%)
+  No complete genomes found for Oribacterium sp_oral_taxon_078, searching for any representative genome...
+✓ Oribacterium sp_oral_taxon_078: GCF_000160135.1 [○ Unknown]
+[166/201] Processing Serratia liquefaciens (0.05%)
+· Serratia liquefaciens: already present, skipping
+[167/201] Processing Capnocytophaga sputigena (0.05%)
+· Capnocytophaga sputigena: already present, skipping
+[168/201] Processing Corynebacterium matruchotii (0.05%)
+· Corynebacterium matruchotii: already present, skipping
+[169/201] Processing Streptococcus infantis (0.05%)
+· Streptococcus infantis: already present, skipping
+[170/201] Processing Fusobacterium nucleatum (0.05%)
+· Fusobacterium nucleatum: already present, skipping
+[171/201] Processing Tannerella serpentiformis (0.05%)
+· Tannerella serpentiformis: already present, skipping
+[172/201] Processing Kocuria massiliensis (0.05%)
+  No complete genomes found for Kocuria massiliensis, searching for any representative genome...
+✓ Kocuria massiliensis: GCF_027568535.1 [○ Unknown]
+[173/201] Processing Schaalia georgiae (0.05%)
+  No complete genomes found for Schaalia georgiae, searching for any representative genome...
+✓ Schaalia georgiae: GCA_963554635.1 [○ Unknown]
+[174/201] Processing Eikenella corrodens (0.05%)
+· Eikenella corrodens: already present, skipping
+[175/201] Processing Microbacterium oxydans (0.05%)
+· Microbacterium oxydans: already present, skipping
+[176/201] Processing Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_sulci (0.05%)
+  No complete genomes found for Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_sulci, searching for any representative genome...
+  No representative genomes found, searching for any genome...
+! Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_sulci: No complete genomes found
+[177/201] Processing Staphylococcus pasteuri (0.04%)
+· Staphylococcus pasteuri: already present, skipping
+[178/201] Processing Candida parapsilosis (0.04%)
+· Candida parapsilosis: already present, skipping
+[179/201] Processing Mogibacterium timidum (0.04%)
+  No complete genomes found for Mogibacterium timidum, searching for any representative genome...
+✓ Mogibacterium timidum: GCF_963536525.1 [○ Unknown]
+[180/201] Processing Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_348 (0.04%)
+  No complete genomes found for Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_348, searching for any representative genome...
+  No representative genomes found, searching for any genome...
+! Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_348: No complete genomes found
+[181/201] Processing Shinella sp_DD12 (0.04%)
+  No complete genomes found for Shinella sp_DD12, searching for any representative genome...
+✓ Shinella sp_DD12: GCF_000496935.2 [○ Unknown]
+[182/201] Processing Staphylococcus lugdunensis (0.04%)
+· Staphylococcus lugdunensis: already present, skipping
+[183/201] Processing Rhodospirillaceae_unclassified Rhodospirillaceae_bacterium_CCH5_H10 (0.04%)
+  No complete genomes found for Rhodospirillaceae_unclassified Rhodospirillaceae_bacterium_CCH5_H10, searching for any representative genome...
+  No representative genomes found, searching for any genome...
+! Rhodospirillaceae_unclassified Rhodospirillaceae_bacterium_CCH5_H10: No complete genomes found
+[184/201] Processing Brucella anthropi (0.04%)
+· Brucella anthropi: already present, skipping
+[185/201] Processing Actinomyces bouchesdurhonensis (0.04%)
+  No complete genomes found for Actinomyces bouchesdurhonensis, searching for any representative genome...
+✓ Actinomyces bouchesdurhonensis: GCF_965245965.1 [○ Unknown]
+[186/201] Processing Pseudomonas fragi (0.04%)
+· Pseudomonas fragi: already present, skipping
+[187/201] Processing Leptotrichia sp_oral_taxon_215 (0.04%)
+  No complete genomes found for Leptotrichia sp_oral_taxon_215, searching for any representative genome...
+✓ Leptotrichia sp_oral_taxon_215: GCA_905371725.1 [○ Unknown]
+[188/201] Processing Brevundimonas sp_EYE_349 (0.04%)
+  No complete genomes found for Brevundimonas sp_EYE_349, searching for any representative genome...
+✓ Brevundimonas sp_EYE_349: GCF_023147505.1 [○ Unknown]
+[189/201] Processing Sphingopyxis microcysteis (0.04%)
+  No complete genomes found for Sphingopyxis microcysteis, searching for any representative genome...
+✓ Sphingopyxis microcysteis: GCF_012274265.1 [○ Unknown]
+[190/201] Processing Neisseria cinerea (0.04%)
+· Neisseria cinerea: already present, skipping
+[191/201] Processing Sphingomonas koreensis (0.04%)
+· Sphingomonas koreensis: already present, skipping
+[192/201] Processing Sphingomonas sp_JUb134 (0.04%)
+  No complete genomes found for Sphingomonas sp_JUb134, searching for any representative genome...
+✓ Sphingomonas sp_JUb134: GCF_004341505.2 [○ Unknown]
+[193/201] Processing Achromobacter insuavis (0.04%)
+· Achromobacter insuavis: already present, skipping
+[194/201] Processing Acinetobacter sp_ANC_4204 (0.04%)
+  No complete genomes found for Acinetobacter sp_ANC_4204, searching for any representative genome...
+✓ Acinetobacter sp_ANC_4204: GCF_002135205.1 [○ Unknown]
+[195/201] Processing Prevotella nanceiensis (0.04%)
+  No complete genomes found for Prevotella nanceiensis, searching for any representative genome...
+✓ Prevotella nanceiensis: GCF_963553995.1 [○ Unknown]
+[196/201] Processing Candidatus_Nanoperiomorbus periodonticus (0.04%)
+  No complete genomes found for Candidatus_Nanoperiomorbus periodonticus, searching for any representative genome...
+✓ Candidatus_Nanoperiomorbus periodonticus: GCF_004138455.1 [○ Unknown]
+[197/201] Processing Haemophilus paraphrohaemolyticus (0.04%)
+  No complete genomes found for Haemophilus paraphrohaemolyticus, searching for any representative genome...
+✓ Haemophilus paraphrohaemolyticus: GCF_965245225.1 [○ Unknown]
+[198/201] Processing Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_infirmum (0.04%)
+  No complete genomes found for Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_infirmum, searching for any representative genome...
+  No representative genomes found, searching for any genome...
+! Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_infirmum: No complete genomes found
+[199/201] Processing Shuttleworthia satelles (0.03%)
+  No complete genomes found for Shuttleworthia satelles, searching for any representative genome...
+✓ Shuttleworthia satelles: GCF_963543355.1 [○ Unknown]
+[200/201] Processing Lautropia dentalis (0.03%)
+  No complete genomes found for Lautropia dentalis, searching for any representative genome...
+✓ Lautropia dentalis: GCA_965246495.1 [○ Unknown]
+[201/201] Processing Bulleidia extructa (0.03%)
+  No complete genomes found for Bulleidia extructa, searching for any representative genome...
+✓ Bulleidia extructa: GCF_049341045.1 [○ Unknown]
+
+=== Download Summary ===
+Species processed: 201
+Successful downloads: 194
+Failed species: 7
+
+Failed species:
+  - Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_brachy
+  - Pseudomonas aeruginosa
+  - Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_352
+  - Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_sulci
+  - Candidatus_Saccharibacteria_unclassified TM7_phylum_sp_oral_taxon_348
+  - Rhodospirillaceae_unclassified Rhodospirillaceae_bacterium_CCH5_H10
+  - Eubacteriales_Family_XIII_Incertae_Sedis_unclassified Eubacterium_infirmum
+
+Genomes saved to: /local/mrahman/magician/data/mooh_representative
+(magician_base) mrahman@core5:~/magician$ echo "Final genome count:" && ls /local/mrahman/magician/data/mooh_representative/*.fna.gz | wc -l && echo -e "\nFinal directory size:" && du -sh /local/mrahman/magician/data/mooh_representative/ && echo -e "\nSample of newly downloaded genomes:" && ls -lt /local/mrahman/magician/data/mooh_representative/*.fna.gz | head -10
+Final genome count:
+175
+
+Final directory size:
+161M    /local/mrahman/magician/data/mooh_representative/
+
+Sample of newly downloaded genomes:
+-rw-rw-r-- 1 mrahman mrahman  404816 Sep  2 16:31 /local/mrahman/magician/data/mooh_representative/Bulleidia_extructa_GCF_049341045.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  763846 Sep  2 16:31 /local/mrahman/magician/data/mooh_representative/Lautropia_dentalis_GCA_965246495.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  601624 Sep  2 16:31 /local/mrahman/magician/data/mooh_representative/Shuttleworthia_satelles_GCF_963543355.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  609055 Sep  2 16:31 /local/mrahman/magician/data/mooh_representative/Haemophilus_paraphrohaemolyticus_GCF_965245225.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  222598 Sep  2 16:31 /local/mrahman/magician/data/mooh_representative/Candidatus_Nanoperiomorbus_periodonticus_GCF_004138455.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  737647 Sep  2 16:31 /local/mrahman/magician/data/mooh_representative/Prevotella_nanceiensis_GCF_963553995.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman 1160115 Sep  2 16:30 /local/mrahman/magician/data/mooh_representative/Acinetobacter_sp_ANC_4204_GCF_002135205.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman 1176609 Sep  2 16:30 /local/mrahman/magician/data/mooh_representative/Sphingomonas_sp_JUb134_GCF_004341505.2.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  993980 Sep  2 16:30 /local/mrahman/magician/data/mooh_representative/Sphingopyxis_microcysteis_GCF_012274265.1.fna.gz
+-rw-rw-r-- 1 mrahman mrahman  987997 Sep  2 16:30 /local/mrahman/magician/data/mooh_representative/Brevundimonas_sp_EYE_349_GCF_023147505.1.fna.gz
+(magician_base) mrahman@core5:~/magician$ 
