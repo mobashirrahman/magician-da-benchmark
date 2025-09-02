@@ -13,3 +13,5 @@ benchdamic_project
 results
 is/.Rproj.user
 is/.vscode
+data/HOMD/genomes
+data/camisim_toy
