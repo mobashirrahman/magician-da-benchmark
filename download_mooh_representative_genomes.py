@@ -76,6 +76,30 @@ def get_species_name(taxon_string: str) -> Optional[str]:
     
     return None
 
+
+def _is_valid_strain_token(token: str) -> bool:
+    """Heuristic to decide if MetaPhlAn t__ token likely represents a real strain identifier."""
+    if not token:
+        return False
+    t = token.strip()
+    # Exclude common placeholders/codes
+    bad_markers = ["SGB", "group", "unclassified", "EUK", "GGB", "_SGB", "_group"]
+    if any(m.lower() in t.lower() for m in bad_markers):
+        return False
+    # Avoid generic sp_ tokens
+    if re.match(r"^sp[_-]", t, flags=re.IGNORECASE):
+        return False
+    return True
+
+
+def get_strain_candidate(taxon_string: str) -> Optional[str]:
+    """Extract strain-like token from MetaPhlAn taxon (t__) if it appears valid."""
+    taxonomy = parse_metaphlan_taxon(taxon_string)
+    strain = taxonomy.get("strain")
+    if strain and _is_valid_strain_token(strain):
+        return strain
+    return None
+
 def search_genomes_for_species(species: str, max_results: int = 5) -> List[str]:
     """Search for genomes for a given species, preferring complete genomes."""
     # First try to find complete genomes
@@ -131,6 +155,24 @@ def search_genomes_for_species(species: str, max_results: int = 5) -> List[str]:
         return []
 
 
+def search_genomes_for_strain(species: str, strain: str, max_results: int = 10) -> List[str]:
+    """Search for strain-matching assemblies within a species (best-effort via All Fields)."""
+    search_term = f'"{species}"[Organism] AND ("{strain}"[All Fields] OR "{species} {strain}"[All Fields])'
+    try:
+        handle = Entrez.esearch(
+            db="assembly",
+            term=search_term,
+            retmax=max_results,
+            sort="relevance",
+        )
+        record = Entrez.read(handle)
+        handle.close()
+        return record.get("IdList", [])
+    except Exception as e:
+        typer.echo(f"Error searching strain {species} / {strain}: {e}", err=True)
+        return []
+
+
 
 def _ftp_path(uid: str) -> Optional[str]:
     """Given an NCBI Assembly UID, return the GenBank/RefSeq FTP path."""
@@ -160,7 +202,27 @@ def get_assembly_info(uid: str) -> Tuple[Optional[str], Optional[str]]:
         typer.echo(f"Error getting assembly info for UID {uid}: {e}", err=True)
         return None, None
 
-def download_genome_by_uid(uid: str, species: str, out_dir: pathlib.Path, delay: float = 1.0) -> bool:
+def _assembly_rank(accession: Optional[str], level: Optional[str]) -> tuple[int, int]:
+    """Ranking helper: prefer RefSeq over GenBank, and higher assembly levels."""
+    refseq_score = 1 if accession and str(accession).startswith("GCF_") else 0
+    level_rank = {"Complete Genome": 4, "Chromosome": 3, "Scaffold": 2, "Contig": 1}
+    return (refseq_score, level_rank.get(level or "", 0))
+
+
+def pick_best_assembly(assembly_ids: List[str]) -> Optional[Tuple[str, str, str]]:
+    """Return (uid, accession, level) for best assembly among provided IDs."""
+    best = None
+    best_score = (-1, -1)
+    for uid in assembly_ids:
+        acc, lvl = get_assembly_info(uid)
+        score = _assembly_rank(acc, lvl)
+        if acc and score > best_score:
+            best = (uid, acc, lvl or "Unknown")
+            best_score = score
+    return best
+
+
+def download_genome_by_uid(uid: str, species: str, out_dir: pathlib.Path, delay: float = 1.0, strain: Optional[str] = None) -> bool:
     """Download genome using NCBI Assembly UID."""
     
     # Get accession and assembly level for filename and info
@@ -169,10 +231,16 @@ def download_genome_by_uid(uid: str, species: str, out_dir: pathlib.Path, delay:
         typer.echo(f"! {species}: Could not get accession for UID {uid}", err=True)
         return False
     
-    # Create safe filename from species name
+    # Create safe filename from species (and optional strain) name
     safe_species = re.sub(r'[^\w\s-]', '', species).strip()
     safe_species = re.sub(r'[-\s]+', '_', safe_species)
-    dest = out_dir / f"{safe_species}_{accession}.fna.gz"
+    safe_strain = None
+    if strain:
+        st = re.sub(r'[^\w\s-]', '', strain).strip()
+        st = re.sub(r'[-\s]+', '_', st)
+        safe_strain = st if st else None
+    base_name = f"{safe_species}{('_' + safe_strain) if safe_strain else ''}_{accession}"
+    dest = out_dir / f"{base_name}.fna.gz"
     
     if dest.exists():
         typer.echo(f"· {species}: already present, skipping")
@@ -197,7 +265,8 @@ def download_genome_by_uid(uid: str, species: str, out_dir: pathlib.Path, delay:
         
         # Show assembly level in output
         level_indicator = "●" if assembly_level == "Complete Genome" else "○"
-        typer.echo(f"✓ {species}: {accession} [{level_indicator} {assembly_level}]")
+        label = f"{species}{(' ' + strain) if strain else ''}"
+        typer.echo(f"✓ {label}: {accession} [{level_indicator} {assembly_level}]")
         return True
     except requests.HTTPError as e:
         typer.echo(f"! {species}: HTTP {e.response.status_code} – {e}", err=True)
@@ -232,6 +301,10 @@ def main(
     min_abundance: float = typer.Option(
         0.0, help="Minimum relative abundance threshold (%)."
     ),
+    out_mapping: Optional[pathlib.Path] = typer.Option(
+        pathlib.Path("data/metaphlan4_genome_mapping_strain.csv"),
+        help="Optional path to write mapping CSV with chosen assemblies",
+    ),
 ):
     """Download representative genomes for species from MetaPhlAn4 data."""
 
@@ -260,50 +333,88 @@ def main(
     df_filtered = df[df["relative_abundance"] >= min_abundance]
     typer.echo(f"Found {len(df_filtered)} taxa above {min_abundance}% abundance threshold")
 
-    # Extract species names
+    # Extract species + strain candidates
     species_data = []
     for _, row in df_filtered.iterrows():
-        species_name = get_species_name(row["taxon"])
+        taxon = row["taxon"]
+        species_name = get_species_name(taxon)
         if species_name:
             species_data.append({
                 "species": species_name,
-                "taxon": row["taxon"],
+                "strain": get_strain_candidate(taxon),
+                "taxon": taxon,
                 "abundance": row["relative_abundance"]
             })
 
     typer.echo(f"Extracted {len(species_data)} valid species names")
 
-    # Download genomes
+    # Download genomes with strain preference; ensure uniqueness by (species, strain)
     successful_downloads = 0
     failed_species = []
+    seen_keys = set()
+    mapping_rows: List[Dict[str, str]] = []
 
     for i, data in enumerate(species_data, 1):
         species = data["species"]
+        strain = data.get("strain")
         abundance = data["abundance"]
-        
-        typer.echo(f"[{i}/{len(species_data)}] Processing {species} ({abundance:.2f}%)")
-        
-        # Search for genomes
-        assembly_ids = search_genomes_for_species(species, max_results=max_per_species * 2)
+
+        key = (species, strain or None)
+        if key in seen_keys:
+            typer.echo(f"· {species}{(' ' + strain) if strain else ''}: already processed, skipping")
+            continue
+
+        typer.echo(f"[{i}/{len(species_data)}] Processing {species}{(' ' + strain) if strain else ''} ({abundance:.2f}%)")
+
+        # Search for genomes (strain-first)
+        assembly_ids: List[str] = []
+        chosen_level = "species"
+        if strain:
+            assembly_ids = search_genomes_for_strain(species, strain, max_results=max_per_species * 3)
+            if assembly_ids:
+                chosen_level = "strain"
+        if not assembly_ids:
+            assembly_ids = search_genomes_for_species(species, max_results=max_per_species * 3)
         
         if not assembly_ids:
-            typer.echo(f"! {species}: No complete genomes found")
+            typer.echo(f"! {species}{(' ' + strain) if strain else ''}: No assemblies found")
             failed_species.append(species)
             time.sleep(delay)
             continue
-        
-        # Try to download up to max_per_species genomes
-        downloaded_count = 0
-        for uid in assembly_ids:
-            if downloaded_count >= max_per_species:
-                break
-                
-            success = download_genome_by_uid(uid, species, out, delay)
-            if success:
-                downloaded_count += 1
-        
-        if downloaded_count > 0:
+
+        best = pick_best_assembly(assembly_ids)
+        if not best:
+            typer.echo(f"! {species}{(' ' + strain) if strain else ''}: No suitable assemblies after ranking")
+            failed_species.append(species)
+            continue
+
+        uid, accession, level = best
+        success = download_genome_by_uid(uid, species, out, delay, strain=strain)
+        if success:
             successful_downloads += 1
+            seen_keys.add(key)
+            # Build output filename consistently with download_genome_by_uid
+            safe_species = re.sub(r'[^\w\s-]', '', species).strip()
+            safe_species = re.sub(r'[-\s]+', '_', safe_species)
+            safe_strain = None
+            if strain:
+                st = re.sub(r'[^\w\s-]', '', strain).strip()
+                st = re.sub(r'[-\s]+', '_', st)
+                safe_strain = st if st else None
+            filename = f"{safe_species}{('_' + safe_strain) if safe_strain else ''}_{accession}.fna.gz"
+            genome_status = "RefSeq" if accession.startswith("GCF_") else "GenBank"
+            mapping_rows.append({
+                "original_metaphlan_taxon": data["taxon"],
+                "species_search_term": species,
+                "strain_candidate": strain or "",
+                "chosen_level": chosen_level,
+                "assembly_level": level or "Unknown",
+                "abundance": data["abundance"],
+                "relative_abundance": data["abundance"],
+                "genome_status": genome_status,
+                "genome_accession": accession,
+                "genome_filename": filename,
+            })
         else:
             failed_species.append(species)
 
@@ -319,6 +430,15 @@ def main(
             typer.echo(f"  - {species}")
         if len(failed_species) > 10:
             typer.echo(f"  ... and {len(failed_species) - 10} more")
+
+    # Write updated mapping if requested
+    if out_mapping:
+        try:
+            out_mapping.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(mapping_rows).to_csv(out_mapping, index=False)
+            typer.echo(f"\nUpdated mapping written to: {out_mapping.resolve()}")
+        except Exception as e:
+            typer.echo(f"Error writing mapping CSV: {e}", err=True)
 
     typer.echo(f"\nGenomes saved to: {out.resolve()}")
 
