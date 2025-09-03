@@ -103,6 +103,15 @@ def load_mapping(mapping_csv: pathlib.Path, genome_dir: pathlib.Path) -> pd.Data
         & (~df["genome_status"].astype(str).str.contains("Download Failed|Species Not Extractable", case=False))
     )
     sub = df.loc[usable, ["original_metaphlan_taxon", "relative_abundance", "genome_filename"]].copy()
+    # Deduplicate by genome_filename (sum relative_abundance)
+    sub = (
+        sub.groupby(["genome_filename"], as_index=False)
+           .agg({
+               "relative_abundance": "sum",
+               # Keep one representative taxon (first) for provenance
+               "original_metaphlan_taxon": "first",
+           })
+    )
     sub["genome_path"] = sub["genome_filename"].apply(lambda n: (genome_dir / str(n)).resolve())
     # Filter to existing files
     exists_mask = sub["genome_path"].apply(lambda p: p.exists())
@@ -266,5 +275,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
 
 
