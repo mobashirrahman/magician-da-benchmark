@@ -51,7 +51,8 @@ def generate_config_file(camisim_dir: Path, meta_file: Path, id_file: Path, outp
                          abundance_file: Optional[Path] = "", profile_name: Optional[str] = "mbarc",
                          own_error_basename: Optional[str] = "",
                          own_error_readlength: Optional[int] = "",
-                         insert_size: Optional[int] = 270) -> str:
+                         insert_size: Optional[int] = 270,
+                         temp_directory: Optional[str] = "/tmp") -> str:
     """Generate a config file for CAMISIM and write it to a specified filename.
     Arguments:
         camisim_dir:            Path to the directory containing CAMISIM
@@ -122,7 +123,7 @@ def generate_config_file(camisim_dir: Path, meta_file: Path, id_file: Path, outp
     output_directory={output_dir}
     
     # temporary directory
-    temp_directory=/tmp
+    temp_directory={temp_directory}
     
     # gold standard assembly
     gsa=True
@@ -273,6 +274,8 @@ if __name__ == "__main__":
     parser.add_argument("--profile_readlength", action="store",
                         help="Read length of custom error profile; required with 'own' error profile", type=int)
     parser.add_argument('--errorfree', action="store_true", help="Don't use an error profile (only works with wgsim)")
+    parser.add_argument('--temp_directory', action="store", help="Custom temporary directory (default: /tmp)", 
+                        default="/tmp")
     args = parser.parse_args()
 
     # establish location of CAMISIM dir
@@ -351,6 +354,6 @@ if __name__ == "__main__":
 
     config_str = generate_config_file(camisim_dir, metadata, genome_file, out_dir, read_sim, read_sim_path, path_to_samtools, sample_type,
                                       genomes, sample_size, error_profile, abundance_file, art_profile_type,
-                                      profile_basename, profile_readlength, insert_size)
+                                      profile_basename, profile_readlength, insert_size, args.temp_directory)
     with open(filename, "w") as outfile:
         outfile.write(config_str)

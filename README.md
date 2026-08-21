@@ -34,6 +34,18 @@ git clone https://github.com/KatSteinke/magician
 You will also have to adapt the config file given under [config/default_config.yml](config/default_config.yml). 
 ## CAMISIM database settings
 Change the path given under `camisim_path` in `default_config.yml`to the path to your forked copy of CAMISIM.
+
+## CAMISIM sample generation mode
+MAGICIAN now defaults to using **differential mode** for CAMISIM sample generation, which is ideal for differential abundance (DA) studies. In this mode, each sample's genome abundances are drawn independently from a log-normal distribution, creating the variation needed for DA analysis.
+
+Available modes:
+- `differential` (default): Independent log-normal distributions for each sample - ideal for DA studies
+- `replicates`: Samples derived from a base profile with added noise
+- `timeseries_normal`: Time series with normal distribution noise
+- `timeseries_lognormal`: Time series with log-normal distribution noise
+
+To change the mode, add `sample_type: [mode]` to your config file or use the `--sample_type` parameter.
+
 ## Package management system (conda/mamba)
 If you use mamba (recommended due to speed), change the setting for `conda_frontend` to `mamba`. 
 # Running MAGICIAN

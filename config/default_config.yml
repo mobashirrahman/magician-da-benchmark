@@ -2,3 +2,4 @@
 camisim_path: /home/mrahman/magician/CAMISIM
 # Conda frontend to use in Snakemake. Use mamba if you have installed this instead.
 conda_frontend: mamba
+

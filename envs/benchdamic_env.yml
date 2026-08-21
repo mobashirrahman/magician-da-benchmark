@@ -15,6 +15,7 @@ dependencies:
   - bioconductor-deseq2
   - bioconductor-edger
   - bioconductor-aldex2
+  - bioconductor-treesummarizedexperiment
 
   # ---- Extra wrappers now resolvable with R 4.2 ----
   - r-corncob

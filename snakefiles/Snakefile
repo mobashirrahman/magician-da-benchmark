@@ -17,6 +17,9 @@ CAMISIM_DIR = config["camisim_path"]
 # package base dir
 MAGICIAN_DIR = pathlib.Path(workflow.basedir).parent
 
+# Permanent temporary directory to avoid disk space issues
+TEMP_DIR = "/local/mrahman/magician/tmp"
+
 # if config entries do not exist, set defaults
 PROFILE_TYPE = config.get("profile_type", "mbarc")
 PROFILE_NAME = config.get("profile_name", False)
@@ -175,10 +178,40 @@ rule all_summaries:
     input:
         all_summaries = expand("summaries/general_summary_{sample}.xlsx", sample=SAMPLES)
 
+rule all_complete_analysis:
+    """
+    @brief
+        Comprehensive aggregate rule that runs the complete MAGICIAN pipeline including:
+        - CAMISIM simulation and assembly
+        - Binning and quality assessment  
+        - Abundance quantification and matrix generation
+        - Differential abundance analysis with BenchDamic
+    @param SAMPLES:
+        List of sample names.
+    @param METRICS_LIST:
+        List of abundance metrics to analyze.
+    @input:
+        - Bin summary Excel files for all samples
+        - Abundance metric matrices for all metrics
+        - Sample metadata file for DA analysis
+        - Differential abundance results for all metrics
+    """
+    input:
+        # Original bin summaries
+        bin_summaries = expand("summaries/bin_summary_{sample}.xlsx", sample=SAMPLES),
+        # Abundance matrices
+        abundance_matrices = ["metrics_aggregated/counts.tsv", "metrics_aggregated/rpkm.tsv", "metrics_aggregated/tpm.tsv", 
+                             "metrics_aggregated/relative.tsv", "metrics_aggregated/breadth.tsv", "metrics_aggregated/coverage.tsv"],
+        # Sample metadata for DA analysis
+        sample_metadata = "sample_metadata.tsv",
+        # Differential abundance results
+        # da_results = expand("da/{metric}/ALL_methods.done", metric=METRICS_LIST)
+
 rule all_bin_summaries:
     """
     @brief
         Aggregate rule to generate bin-specific summary spreadsheets for all samples.
+        (Kept for backward compatibility)
     @param SAMPLES:
         List of sample names.
     @input:
@@ -271,6 +304,9 @@ rule camisim_configfiles:
     #conda: pathlib.Path(workflow.current_basedir).parent / "requirements.yml"
     shell:
          '''
+         # Ensure the permanent temporary directory exists
+         mkdir -p {TEMP_DIR}
+         
          python3 {MAGICIAN_DIR}/camisim_setup/generate_camisim_config.py \
          {params.camisim_dir} {input.camisim_metafile} {input.camisim_genomefile} -f {output.camisim_configfile} \
          -o "camisim_out/{wildcards.sample}" -a {input.camisim_abundance} -s {params.samplesize} \
@@ -279,7 +315,8 @@ rule camisim_configfiles:
          --read_sim_path "{params.camisim_dir}/tools/art_illumina-2.3.6/art_illumina" \
          --samtools_path "{input.samtools_path}" \
          --error_profile "{params.errorprofile_dir}" \
-         --art_profile_type {params.profile_type} {params.profile_base} {params.profile_readlength}
+         --art_profile_type {params.profile_type} {params.profile_base} {params.profile_readlength} \
+         --temp_directory "{TEMP_DIR}"
          '''
 
 # Run CAMISIM on sample, then make one file each with pooled forward & reverse reads
@@ -299,8 +336,8 @@ rule run_camisim:
     input:
         camisim_configfile = 'camisim_config_{sample}.ini'
     output:
-        concat_results_r1 = 'camisim_out/{sample}/simulated_{sample}_r1.gz',
-        concat_results_r2 = 'camisim_out/{sample}/simulated_{sample}_r2.gz'
+        concat_results_r1 = temp('camisim_out/{sample}/simulated_{sample}_r1.gz'),
+        concat_results_r2 = temp('camisim_out/{sample}/simulated_{sample}_r2.gz')
     conda: "cami_env_py2_fixed"
     resources: camisim_jobs=1
     shadow: "minimal"
@@ -383,11 +420,12 @@ rule trim_bbduk:
         R1 = "camisim_out/{sample}/simulated_{sample}_r1.gz",
         R2 = "camisim_out/{sample}/simulated_{sample}_r2.gz"
     output:
-        R1 = "trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
-        R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
-        RS = "trimReads/{sample}/simulated_{sample}_S.trim.fq.gz"
+        R1 = temp("trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz"),
+        R2 = temp("trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz"),
+        RS = temp("trimReads/{sample}/simulated_{sample}_S.trim.fq.gz")
     threads: 8
     conda: "bbtools_new"
+    shadow: "minimal"
     shell:
         '''
         bbduk.sh -Xmx12g in={input.R1} in2={input.R2} out={output.R1} out2={output.R2} outs={output.RS} overwrite=t \
@@ -425,6 +463,7 @@ rule asm_metaspades:
         "benchmarks/{sample}.metaspades.bm.txt"
     threads: 20
     conda: "metaspades_env"
+    shadow: "shallow"
     shell:
         '''
         metaspades.py -t {threads} -1 {input.R1} -2 {input.R2} -s {input.RS} \
@@ -516,7 +555,7 @@ rule map_bbmap:
         R2="trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
         fa="metaspades/{sample}/simulated_{sample}.scaf.min1000.fa"
     output:
-        outsam="mapped/{sample}.sam",
+        outsam=temp("mapped/{sample}.sam"),
         outbam="mapped/{sample}.sort.bam",
         dep="coverage/{sample}.txt"
     log:
@@ -786,6 +825,7 @@ rule cleanup_drep:
          touch drep_old/{wildcards.sample}/{wildcards.sample}_move_check
          '''
 
+
 rule summarize_results:
     """
     @brief
@@ -864,7 +904,7 @@ rule coverm_metrics:
     input:
         R1 = "trimReads/{sample}/simulated_{sample}_r1.trim.fq.gz",
         R2 = "trimReads/{sample}/simulated_{sample}_r2.trim.fq.gz",
-        genome_dir = "bins_all/{sample}"
+        genome_check = "bins_all/{sample}/{sample}"
     output:
         tsv = "metrics/{sample}.coverage.tsv"
     threads: 16
@@ -874,7 +914,7 @@ rule coverm_metrics:
         mkdir -p metrics
 
         # Build space-separated list of genome FASTA files
-        GENOMES=$(find {input.genome_dir} -name '*.fa' -type f -size +0c \
+        GENOMES=$(find bins_all/{wildcards.sample} -name '*.fa' -type f -size +0c \
                   ! -name '*lowDepth.fa' ! -name '*tooShort.fa' ! -name '*unbinned.fa')
 
         coverm genome \
@@ -897,30 +937,41 @@ rule all_metrics:
     """
     input:
         expand("metrics/{sample}.coverage.tsv", sample=SAMPLES),
-        "metrics/counts.tsv",
-        "metrics/rpkm.tsv",
-        "metrics/tpm.tsv",
-        "metrics/relative.tsv",
-        "metrics/breadth.tsv",
-        "metrics/coverage.tsv"
+        "metrics_aggregated/counts.tsv",
+        "metrics_aggregated/rpkm.tsv",
+        "metrics_aggregated/tpm.tsv",
+        "metrics_aggregated/relative.tsv",
+        "metrics_aggregated/breadth.tsv",
+        "metrics_aggregated/coverage.tsv"
 
 rule build_metric_matrices:
     """
-    Collate all sample CoverM tables into wide matrices (one per metric).
-    Rows = samples, columns = Genome IDs.
+    @brief
+        Collate all sample CoverM tables into wide matrices (one per metric).
+        Rows = samples, columns = Genome IDs.
+    @note
+        CoverM output column mapping to final matrix files:
+        - 'Read Count' → counts.tsv (raw read pairs mapped)
+        - 'RPKM' → rpkm.tsv (reads per kilobase per million)  
+        - 'TPM' → tpm.tsv (transcripts per million)
+        - 'Relative Abundance (%)' → relative.tsv (% of total reads)
+        - 'Covered Bases' → breadth.tsv (fraction of genome covered ≥1×)
+        - 'Mean' → coverage.tsv (mean read depth across genome)
     """
     input:
         expand("metrics/{sample}.coverage.tsv", sample=SAMPLES)
     output:
-        counts   = "metrics/counts.tsv",
-        rpkm     = "metrics/rpkm.tsv",
-        tpm      = "metrics/tpm.tsv",
-        relative = "metrics/relative.tsv",
-        breadth  = "metrics/breadth.tsv",
-        coverage = "metrics/coverage.tsv"   # mean depth
+        counts   = "metrics_aggregated/counts.tsv",
+        rpkm     = "metrics_aggregated/rpkm.tsv",
+        tpm      = "metrics_aggregated/tpm.tsv",
+        relative = "metrics_aggregated/relative.tsv",
+        breadth  = "metrics_aggregated/breadth.tsv",
+        coverage = "metrics_aggregated/coverage.tsv"   # mean depth
     run:
         import pandas as pd, glob, pathlib
 
+        # Dictionary to collect matrices for each metric
+        # Keys correspond to CoverM column name patterns
         mats = {
             'count': [],
             'rpkm':  [],
@@ -929,6 +980,8 @@ rule build_metric_matrices:
             'covered_bases': [],
             'mean': []
         }
+        # Ensure destination directory exists
+        pathlib.Path("metrics_aggregated").mkdir(parents=True, exist_ok=True)
         for f in glob.glob("metrics/*.coverage.tsv"):
             df = pd.read_csv(f, sep='\t')
             sample = pathlib.Path(f).stem.replace(".coverage", "")
@@ -945,12 +998,13 @@ rule build_metric_matrices:
                     raise KeyError(f"{key} column not found in {f}")
                 mats[key].append(df.set_index('Genome')[col_list[0]].rename(sample))
 
-        pd.concat(mats['count'],               axis=1).to_csv(output.counts,   sep='\t')
-        pd.concat(mats['rpkm'],                axis=1).to_csv(output.rpkm,     sep='\t')
-        pd.concat(mats['tpm'],                 axis=1).to_csv(output.tpm,      sep='\t')
-        pd.concat(mats['relative_abundance'],  axis=1).to_csv(output.relative, sep='\t')
-        pd.concat(mats['covered_bases'],       axis=1).to_csv(output.breadth,  sep='\t')
-        pd.concat(mats['mean'],                axis=1).to_csv(output.coverage, sep='\t')
+        # Write matrices - note the CoverM→filename mapping:
+        pd.concat(mats['count'],               axis=1).to_csv(output.counts,   sep='\t')  # Read Count → counts.tsv
+        pd.concat(mats['rpkm'],                axis=1).to_csv(output.rpkm,     sep='\t')  # RPKM → rpkm.tsv
+        pd.concat(mats['tpm'],                 axis=1).to_csv(output.tpm,      sep='\t')  # TPM → tpm.tsv
+        pd.concat(mats['relative_abundance'],  axis=1).to_csv(output.relative, sep='\t')  # Relative Abundance (%) → relative.tsv
+        pd.concat(mats['covered_bases'],       axis=1).to_csv(output.breadth,  sep='\t')  # Covered Bases → breadth.tsv
+        pd.concat(mats['mean'],                axis=1).to_csv(output.coverage, sep='\t')  # Mean → coverage.tsv
 
 
 
@@ -1010,65 +1064,160 @@ rule sample_metadata:
         """
 
 # ─────────────────────────────────────────────────────────────
-#  DA BenchDamic for all metrics (including counts)
+#  DA BenchDamic (split: core and extended) and merge sentinel
 # ─────────────────────────────────────────────────────────────
-rule da_benchdamic_metric:
-    """
-    @brief
-        Run BenchDamic differential abundance analysis on a specified abundance metric
-        (counts, TPM, RPKM, relative, breadth, or coverage).
-    @param input:
-        - metric_table: Abundance matrix TSV for the chosen metric
-        - metadata:     Sample metadata TSV with group assignments
-    @param params:
-        - metric: Metric identifier (counts|tpm|rpkm|relative|breadth|coverage)
-    @output:
-        - done_flag:    Flag file indicating completion for this metric
-        - output_dir:   Directory containing method-specific results for this metric
-    @log:
-        - log: Log file with BenchDamic stdout / stderr
-    """
-    input:
-        metric_table = "metrics/{metric}.tsv",
-        metadata     = "sample_metadata.tsv"
-    params:
-        metric = "{metric}"
-    output:
-        done_flag = "da/{metric}/ALL_methods.done",
-        output_dir = directory("da/{metric}")
-    log:
-        "logs/da_benchdamic/da_benchdamic_{metric}.log"
-    benchmark:
-        "benchmarks/da_benchdamic_{metric}.bm.txt"
-    conda:
-        "benchdamic_env"
-    threads: 4
-    shell:
-        """
-        mkdir -p "{output.output_dir}"
-        mkdir -p "$(dirname "{log}")"
+# rule da_benchdamic_core:
+#     """
+#     @brief
+#         Run core BenchDamic DA methods (original 10) on a specified metric.
+#     @param input:
+#         - metric_table: Abundance matrix TSV for the chosen metric
+#         - metadata:     Sample metadata TSV with group assignments
+#     @param params:
+#         - metric: Metric identifier (counts|tpm|rpkm|relative|breadth|coverage)
+#     @output:
+#         - done_flag: Flag file indicating completion of core methods
+#         - output_dir: Output directory for core results
+#     @log:
+#         - log: Log file with BenchDamic stdout / stderr
+#     """
+#     input:
+#         metric_table = "metrics/{metric}.tsv",
+#         metadata     = "sample_metadata.tsv"
+#     params:
+#         metric = "{metric}",
+#         force_counts = config.get("da_force_counts_on_all_metrics", False)
+#     output:
+#         done_flag = "da/{metric}/core/CORE_methods.done",
+#         output_dir = directory("da/{metric}/core")
+#     log:
+#         "logs/da_benchdamic/core_{metric}.log"
+#     benchmark:
+#         "benchmarks/da_benchdamic_core_{metric}.bm.txt"
+#     conda:
+#         "benchdamic_env"
+#     threads: 4
+#     shell:
+#         """
+#         mkdir -p "{output.output_dir}"
+#         mkdir -p "$(dirname "{log}")"
 
-        # Filter to reference genomes (starting with GC) – mirrors counts rule
-        FILTERED_TABLE="{output.output_dir}/{params.metric}_GC.tsv"
-        awk 'NR==1 || $1 ~ /^GC/' "{input.metric_table}" > "$FILTERED_TABLE"
-        
-        echo "[$$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - BenchDamic on {params.metric}" > "{log}" 2>&1
-        
-        Rscript "{MAGICIAN_DIR}/workflow/scripts/run_benchdamic_ALL.R" \
-                "$FILTERED_TABLE" "{input.metadata}" group "{output.output_dir}" >> "{log}" 2>&1
-        
-        echo "[$$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - Completed {params.metric}" >> "{log}" 2>&1
-        
-        touch "{output.done_flag}"
-        """
+#         # Filter to reference genomes (starting with GC)
+#         FILTERED_TABLE="{output.output_dir}/{params.metric}_GC.tsv"
+#         awk 'NR==1 || $1 ~ /^GC/' "{input.metric_table}" > "$FILTERED_TABLE"
 
-rule da_benchdamic_all:
-    """
-    @brief
-        Aggregate rule to run BenchDamic differential abundance analysis on all metrics
-        (counts, TPM, RPKM, relative, breadth, coverage).
-    @input:
-        - Flag files indicating completion for each metric.
-    """
-    input:
-        expand("da/{metric}/ALL_methods.done", metric=METRICS_LIST)
+#         echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - BenchDamic CORE on {params.metric}" > "{log}" 2>&1
+
+#         FORCE_ARG=""
+#         # More flexible boolean checking for Snakemake config values
+#         if [ "{params.force_counts}" = "True" ] || [ "{params.force_counts}" = "true" ] || [ "{params.force_counts}" = "1" ] || [ "{params.force_counts}" = "yes" ] || [ "{params.force_counts}" = "True" ]; then
+#             FORCE_ARG="--force-counts"
+#         fi
+#         echo "DEBUG: force_counts parameter = '{params.force_counts}', FORCE_ARG = '$FORCE_ARG'" >> "{log}"
+
+#         Rscript "{MAGICIAN_DIR}/workflow/scripts/run_benchdamic_ALL.R" \
+#                 "$FILTERED_TABLE" "{input.metadata}" group "{output.output_dir}" --mode core $FORCE_ARG >> "{log}" 2>&1
+
+#         # Mark directory output as complete for Snakemake's directory() tracking
+#         touch "{output.output_dir}/.snakemake_timestamp"
+
+#         echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - Completed CORE {params.metric}" >> "{log}" 2>&1
+
+#         touch "{output.done_flag}"
+#         """
+
+# rule da_benchdamic_ext:
+#     """
+#     @brief
+#         Run extended DA methods (ANCOM-BC/2, MaAsLin2, LinDA, fastANCOM, Wilcoxon-CLR).
+#     @param input:
+#         - metric_table: Abundance matrix TSV for the chosen metric
+#         - metadata:     Sample metadata TSV with group assignments
+#     @param params:
+#         - metric: Metric identifier (counts|tpm|rpkm|relative|breadth|coverage)
+#     @output:
+#         - done_flag: Flag file indicating completion of extended methods
+#         - output_dir: Output directory for extended results
+#     @log:
+#         - log: Log file with BenchDamic stdout / stderr
+#     """
+#     input:
+#         metric_table = "metrics/{metric}.tsv",
+#         metadata     = "sample_metadata.tsv"
+#     params:
+#         metric = "{metric}",
+#         force_counts = config.get("da_force_counts_on_all_metrics", False)
+#     output:
+#         done_flag = "da/{metric}/ext/EXT_methods.done",
+#         output_dir = directory("da/{metric}/ext")
+#     log:
+#         "logs/da_benchdamic/ext_{metric}.log"
+#     benchmark:
+#         "benchmarks/da_benchdamic_ext_{metric}.bm.txt"
+#     conda:
+#         "benchdamic_ext"
+#     threads: 4
+#     shell:
+#         """
+#         mkdir -p "{output.output_dir}"
+#         mkdir -p "$(dirname "{log}")"
+
+#         # Filter to reference genomes (starting with GC)
+#         FILTERED_TABLE="{output.output_dir}/{params.metric}_GC.tsv"
+#         awk 'NR==1 || $1 ~ /^GC/' "{input.metric_table}" > "$FILTERED_TABLE"
+
+#         echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - BenchDamic EXT on {params.metric}" > "{log}" 2>&1
+
+#         FORCE_ARG=""
+#         # More flexible boolean checking for Snakemake config values
+#         if [ "{params.force_counts}" = "True" ] || [ "{params.force_counts}" = "true" ] || [ "{params.force_counts}" = "1" ] || [ "{params.force_counts}" = "yes" ] || [ "{params.force_counts}" = "True" ]; then
+#             FORCE_ARG="--force-counts"
+#         fi
+#         echo "DEBUG: force_counts parameter = '{params.force_counts}', FORCE_ARG = '$FORCE_ARG'" >> "{log}"
+
+#         Rscript "{MAGICIAN_DIR}/workflow/scripts/run_benchdamic_ALL.R" \
+#                 "$FILTERED_TABLE" "{input.metadata}" group "{output.output_dir}" --mode ext $FORCE_ARG >> "{log}" 2>&1
+
+#         # Mark directory output as complete for Snakemake's directory() tracking
+#         touch "{output.output_dir}/.snakemake_timestamp"
+
+#         echo "[$(date '+%Y-%m-%d %H:%M:%S')] - [STEP] - Completed EXT {params.metric}" >> "{log}" 2>&1
+
+#         touch "{output.done_flag}"
+#         """
+
+# rule da_benchdamic_merge:
+#     """
+#     @brief
+#         Merge core and extended DA runs by emitting the legacy ALL_methods.done sentinel.
+#     @param input:
+#         - core_done: CORE_methods.done flag
+#         - ext_done:  EXT_methods.done flag
+#     @output:
+#         - done_flag: Legacy aggregate sentinel used by downstream targets
+#         - out_dir:   Aggregate directory path
+#     """
+#     input:
+#         core_done = "da/{metric}/core/CORE_methods.done",
+#         ext_done  = "da/{metric}/ext/EXT_methods.done"
+#     output:
+#         done_flag = "da/{metric}/ALL_methods.done",
+#         out_dir   = directory("da/{metric}")
+#     shell:
+#         """
+#         mkdir -p "{output.out_dir}"
+#         touch "{output.done_flag}"
+#         """
+
+# rule da_benchdamic_all:
+#     """
+#     @brief
+#         Aggregate rule to run BenchDamic differential abundance analysis on all metrics
+#         (counts, TPM, RPKM, relative, breadth, coverage).
+#     @input:
+#         - Flag files indicating completion for each metric.
+#     """
+#     input:
+#         expand("da/{metric}/ALL_methods.done", metric=METRICS_LIST)
+
+

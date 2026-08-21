@@ -147,8 +147,8 @@ if __name__ == "__main__":
                              "(one column with organisms' copy numbers per community)")
     parser.add_argument("--target", action="store",
                         help="Desired output file or rule "
-                             "(default: MAGs, statistics and summary files for all communities)",
-                        default="all_bin_summaries")
+                             "(default: Complete analysis including DA)",
+                        default="all_complete_analysis")
     parser.add_argument("--profile_type", action="store",
                         help="Type of ART error profile to use for CAMISIM: mbarc, hi, mi, hi150, own "
                              f"(default: {DEFAULT_PROFILE})",
@@ -181,7 +181,7 @@ if __name__ == "__main__":
             # make a copy of the input file with absolute paths so it can run anywhere
             local_tempfile = pathlib.Path.cwd() / "tmp_demo_sample_distributions.tsv"
             make_demo_tempfile(local_tempfile)
-            snake_command = get_snake_cmd(local_tempfile, "all_bin_summaries", DEFAULT_PROFILE,
+            snake_command = get_snake_cmd(local_tempfile, "all_complete_analysis", DEFAULT_PROFILE,
                                           insert_size = DEFAULT_INSERT, cluster_cmd = "",
                                           cores = DEFAULT_CORES)
             snake_run = subprocess.run(snake_command, check=True)
