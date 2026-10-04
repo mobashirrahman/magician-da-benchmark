@@ -1,230 +1,134 @@
 # MAGICIAN: differential abundance benchmarks on MAGs
 
-MAGICIAN simulates controlled communities, reconstructs a shared MAG catalogue,
-quantifies source genomes and MAGs separately, runs multiple differential abundance
-methods, and scores discoveries against truth defined on the measurement scale each
-method actually tests. It retains compact benchmark results and audit evidence;
-sequencing intermediates are temporary.
+MAGICIAN tests whether differential abundance (DA) methods stay trustworthy when the
+feature table comes from **metagenome-assembled genomes (MAGs)** instead of a clean
+taxon table. It simulates communities with a known design, rebuilds a MAG catalogue,
+runs 16 DA methods, and scores them against truth defined on the scale each method
+actually tests.
 
-The default is an artificial **software smoke test**: four genomes, six independent
-samples, one null experiment and one spiked experiment. Use real genomes and repeated
-independent seeds before interpreting method rankings.
-
-## Workflow
+## How it works
 
 ```mermaid
 flowchart TD
-    A[Source genomes and controlled design] --> B[wgsim paired reads]
-    B --> C[One MEGAHIT assembly per experiment]
-    C --> D[Map samples to common contigs]
-    D --> E[Multi-sample depth and one MetaBAT2 catalogue]
-    E --> F[Reuse contig alignments for MAG counts]
-    B --> G[Separate source-genome mapping]
-    E --> H[Assign MAGs to sources for evaluation]
-    F --> I[Durable raw counts, lengths and library totals]
-    I --> J[Derived matrices: filter, reserved other, normalize]
-    J --> K[Truth lanes from the latent design]
-    K --> L[Registry-driven DA methods]
-    L --> M[Truth scores, rankings, plots and report]
-    H --> M
-    N[Matrix bundle: counts plus latent truth] --> I
+    A[Source genomes + controlled design] --> B[Simulate paired reads]
+    B --> C[Co-assemble, map, bin: one MAG catalogue]
+    C --> D[Raw counts, lengths, library totals]
+    B --> E[Map to source genomes: oracle table]
+    D --> F[Filter, reserve 'other', normalise]
+    E --> F
+    F --> G[Truth lanes from the latent design]
+    G --> H[DA methods from the registry]
+    H --> I[FDR, recall, AP, null calibration, report]
 ```
 
-Methods are declared once in [config/methods.yaml](config/methods.yaml) and run
-through small adapters under `workflow/scripts/da/`. Count methods receive actual
-counts. Compositional methods also compare TPM, RPKM and relative abundance. Missing
-packages, empty catalogues and timeouts are explicit and cannot become winners.
+- **Truth lanes.** Each method is scored on its own endpoint: relative abundance, read
+  fraction, CLR, change relative to a typical feature (reference-relative), or absolute
+  abundance. A correct read-fraction association is not counted as a false positive.
+- **Methods** live in [config/methods.yaml](config/methods.yaml) and run through small
+  R adapters in `workflow/scripts/da/`. Variants (e.g. gamma settings) are grouped
+  as one method family.
+- **No silent wins.** Failed, empty or timed-out methods are recorded and cannot rank.
+  A method with zero recall cannot win by declaring nothing.
+- **Matrix-only mode** skips reads, assembly and binning, so many replicates are cheap.
+- Sequencing intermediates are deleted after counting; only compact matrices and
+  audit evidence are kept ([storage policy](docs/storage.md)).
 
-## Setup and smoke run
+## How to run
 
 ```bash
 conda env create -n magician --file environment.yaml
 conda activate magician
-python run_magician.py --dry-run
-python run_magician.py --cores 4
+python tools/bootstrap_envs.py --all          # build and freeze method environments (needs network once)
+pytest -q                                     # 46 regression tests
+python run_magician.py --dry-run              # check the workflow
+python run_magician.py --cores 4              # 4-genome smoke test
 ```
 
-Standard Snakemake commands also work:
-
-```bash
-export CONDA_PKGS_DIRS="$PWD/cache/packages"
-export XDG_CACHE_HOME="$PWD/cache/xdg"
-snakemake --snakefile workflow/Snakefile --cores 4 --dry-run
-snakemake --snakefile workflow/Snakefile --cores 4
-```
-
-Snakemake reads profiles/default/config.yaml automatically. Executable rules have
-pinned Conda environments, threads, memory/disk resources, logs and benchmarks.
-Python module fingerprints, the R contract, the selected adapter and the method
-registry are tracked dependencies: changing one reruns testing and scoring while
-retaining expensive upstream results. First installation needs network access. The
-SLURM profile under profiles/slurm requires its executor plugin plus your
-account/partition settings.
-
-Methods whose R packages are not distributed through conda are installed from pinned
-CRAN tarballs, pinned Bioconductor release tarballs or pinned Git commits, before any
-run. No DA rule touches the network:
-
-```bash
-python tools/bootstrap_envs.py --all            # build and freeze every method environment
-python tools/bootstrap_envs.py --env r_aldex3   # or one at a time
-```
-
-Exact resolved builds, checksums and pinned sources are archived under
-workflow/envs/locks; see its README.
-
-Open **results_benchmark/benchmark/report.html** after completion.
-
-The larger artificial pilot uses 20 genomes and 10 samples per group:
-
-```bash
-python run_magician.py --configfile config/pilot20.yaml --cores 8
-```
-
-Its report is `results_pilot20/benchmark/report.html`. The completed
-[pilot record](docs/validation.md#twenty-genome-artificial-pilot) describes recovery,
-discoveries and resources for the original seven methods. The
-[extension plan](docs/extension_plan.md) covers the new methods, truth lanes and
-repeated studies; the [status section](docs/extension_plan.md#implementation-status)
-records what is implemented and validated.
-
-| File | Meaning |
+| Goal | Command |
 |---|---|
-| benchmark/ranking.tsv | Eligibility and ranking by catalogue/input/endpoint |
-| benchmark/scores.tsv | Per-run FDR, recall, average precision and confusion counts |
-| benchmark/recovery.tsv | Recovered, ambiguous and multiply matched source genomes |
-| benchmark/method_settings.tsv | Declared inputs, units, references, settings, citations |
-| benchmark/method_resources.tsv | Measured runtime and RSS per method and input |
-| benchmark/recommendations.json | Eligible candidate, or an explicit no-candidate result |
-| benchmark/rule_resources.tsv | Measured per-rule runtime and memory |
-| benchmark/storage.json | Retained output/cache sizes and resource summary |
-| evaluation/CASE/feature_evaluation.tsv | Discoveries joined to source truth |
-| truth/CASE/KIND.tsv | Every truth lane, with its denominator and availability |
+| 20-genome end-to-end pilot | `python run_magician.py --configfile config/pilot20.yaml --cores 8` |
+| Matrix-only screening | `python tools/matrix_screening.py --designs baseline overdispersed low_count dropout --null-replicates 5 --spiked-replicates 5` then `python run_magician.py --configfile cache/calibration/config.yaml --cores 8` |
+| Real genomes | `python tools/real_genomes.py check\|freeze ...`, then an overlay config ([production.yaml](config/production.yaml) is an example) |
+| Cluster | `profiles/slurm` (needs the Snakemake SLURM plugin and your account settings) |
 
-Scores retain method messages, package versions and fitting time. Empty catalogues,
-convergence failures, timeouts and unavailable packages appear as their own statuses.
-Variants of one method family are reported as a single candidate.
+Results go to `results_*/benchmark/`; open `report.html` first. Key tables:
+`ranking.tsv` (eligibility and rank), `scores.tsv` (per run), `recovery.tsv`
+(source genomes recovered), `method_resources.tsv` (runtime, memory),
+`recommendations.json`.
 
-## Matrix-only mode
+## Pilot benchmark results
 
-New methods and matrix simulations never need reads, assembly or binning. A matrix
-bundle is a versioned directory of cases, each supplying integer counts, feature
-lengths, sample metadata, the latent expectations every truth lane is computed from,
-and an identity source matching table:
+Three runs, all on **simulated** data, at alpha 0.05:
 
-```text
-bundle/
-  cases.tsv                     case, scenario, seed
-  CASE/samples.tsv              sample_id, group, read_pairs
-  CASE/features.tsv             feature_id, length_bp
-  CASE/counts.tsv               feature_id and one column per sample
-  CASE/truth.tsv                feature_id, is_da, true_log2fc, lengths
-  CASE/expectations.tsv         latent per-sample proportions and counts
-  CASE/matching.tsv             feature_id, source_id, match_status
-```
+| Run | Scale | Outcome |
+|---|---|---|
+| Calibration | 40 matrix replicates (20 null, 20 spiked) over 4 designs, 16 methods | 964/964 jobs, no failures |
+| Screening | 8 replicates, 2 designs | 100/100 jobs |
+| Pilot20 | 20 genomes, 10 samples per group, full pipeline, 1 null + 1 spiked | 195/195 jobs |
 
-```yaml
-input_mode: matrix
-matrix_input:
-  bundle: config/my_bundle
-```
+Calibration, source-level results (FDR on spiked cases, recall, null any-false-discovery rate):
 
-The shared analysis path then runs unchanged: import, derive, truth lanes, methods,
-scoring and report. Matrix screening replicates are generated directly from a latent
-Dirichlet-multinomial model:
+| Endpoint | Method | FDR | Recall | Null any-FD | Eligible |
+|---|---|---|---|---|---|
+| CLR | ZicoSeq | 0.024 | 0.50 | 0.05 | yes |
+| CLR | Wilcoxon-CLR | 0.028 | 0.50 | 0.00 | yes |
+| CLR | ALDEx2 / ALDEx3 (gamma 0) | 0.004 | 0.50 | 0.00 | yes |
+| CLR | MaAsLin2 | 0.037 | 0.50 | 0.00 | yes |
+| CLR | ALDEx2 / ALDEx3 (gamma 0.5) | 0.00 | 0.00 / 0.14 | 0.00 | yes, but near-zero recall |
+| CLR | LinDA | 0.028 | 0.50 | 0.10 | no |
+| Read fraction | limma-voom | 0.029 | 0.50 | 0.05 | yes |
+| Read fraction | DESeq2 | 0.288 | 0.52 | 0.40 | no |
+| Read fraction | edgeR | 0.074 | 0.50 | 0.10 | no |
+| Reference-relative | radEmu, ADAPT | 0.023, 0.033 | 0.50 | 0.00, 0.05 | yes |
+| Reference-relative | MaAsLin3 corrected | 0.014 | 0.50 | 0.15 | no |
+| Relative abundance | ANCOM-BC2 | 0.002 | 0.49 | 0.00 | yes |
+| Relative abundance | MaAsLin3 abundance | 0.026 | 0.50 | 0.15 | no |
 
-```bash
-python tools/matrix_screening.py --designs baseline overdispersed low_count \
-    --null-replicates 100 --spiked-replicates 30 --cores 8
-```
+Pilot20 (one replicate per scenario) showed the same pattern: DESeq2 FDR 0.20, edgeR
+0.25, everything else 0.00.
 
-## Real genomes and repeated experiments
+## Analysis and verdict
 
-Create a candidate list with genome_id, accession, version, path, provenance and
-source_group, then freeze the selection you will actually run. Nothing is downloaded,
-and an existing local reference collection is referenced by path rather than copied:
+**What the results say**
+- On these simulations the CLR family (Wilcoxon-CLR, MaAsLin2, ALDEx2/3 at gamma 0,
+  ZicoSeq) keeps FDR at or below about 0.04, and limma-voom is the only count-based
+  method that is both calibrated and sensitive.
+- DESeq2 and edgeR are anti-conservative: DESeq2 has a spiked FDR of 0.29 and a 0.40
+  null false-discovery rate, edgeR 0.10. LinDA and the MaAsLin3 variants fail the
+  null check (0.10-0.15).
+- Scale assumptions matter. ALDEx2/3 with gamma 0.5 declares almost nothing (recall
+  0.00-0.14); at gamma 0 recall is 0.50. Rankings change with this choice.
+- Recall tops out at about 0.50 for almost every method, so what separates methods is
+  error control, not power.
 
-```bash
-python tools/real_genomes.py check config/my_candidates.tsv
-python tools/real_genomes.py freeze config/my_candidates.tsv \
-    --out config/genome_manifest.tsv \
-    --rule "longest genome per source group, then the predefined related subset" \
-    --group diverse=20 --group related=5
-```
+**Verdict.** The pipeline works end to end and its scoring behaves as designed (failures
+and empty results stay visible, nothing wins by abstaining). The method findings are
+**smoke-level evidence only** and are labelled `smoke_only` in the output.
+- Only 20 null replicates were run, so the 5% error control is not established; the
+  exact binomial null intervals are wide. About 100 per design are needed.
+- All data are Dirichlet-multinomial matrices or artificial genomes. No real reads or
+  genomes have been tested.
+- Whether DESeq2/edgeR failures are real or a truth-definition mismatch still has to
+  be checked across all truth lanes.
+- LOCOM is excluded: its pinned package fails on its own example data.
 
-The frozen manifest records accession and version, local path, checksum, length and
-the selection rule, and is checked before any read is simulated. Create an overlay:
+Practical reading for now: limma-voom and the CLR methods look sound, DESeq2 and edgeR
+look anti-conservative on these designs, and no overall winner should be claimed. The
+study that turns this into a publishable comparison, with real genomes, real-data
+nulls, read-level implants and cohort replication, is specified in [plan.md](plan.md).
 
-```yaml
-genomes:
-  manifest: config/genome_manifest.tsv
-experiment:
-  seeds: [42, 43, 44, 45, 46]
-  samples_per_group: 10
-  read_pairs: 500000
-  differential_fraction: 0.15
-storage:
-  budget_gb: 100
-```
-
-```bash
-python run_magician.py --configfile config/my_experiment.yaml --dry-run
-python run_magician.py --configfile config/my_experiment.yaml --cores 4
-```
-
-Missing keys inherit config/config.yaml. config/production.yaml is a larger example.
-Increase depth after a pilot recovers usable MAGs. Zero MAGs are a valid outcome, with
-empty matrices and an explicit report. Rankings are specific to these simulations.
-
-## Storage and organization
-
-Default budget: 100 GB, configurable to 200 GB. Heavy case processing executes
-sequentially; small DA fits can overlap it. Successful completion retains no FASTQ,
-BAM, assembly or MAG FASTA. Compact matrices and evidence allow DA reruns. See
-[storage policy](docs/storage.md) for cache accounting, resource estimation, runtime
-guards and physical-cap limitations.
+## Repository layout
 
 ```text
-config/                 Settings, method registry, zero policies, manifest examples
-workflow/Snakefile      Workflow entry point
-workflow/rules/         Setup, matrix import, genomes, analysis, reporting
-workflow/schemas/       Configuration schema
-workflow/scripts/       Python adapter, R contract, per-method R adapters
-workflow/envs/          Pinned tool environments
-src/magician/           Testable scientific logic
-profiles/               Local, SLURM, development profiles
-tools/                  Environment bootstrap, matrix screening, genome manifests
-tests/                  Scientific regression and R adapter validation
-docs/                   Methods, storage, validation evidence, extension plan
-archive/                Dated snapshots of historical code, data and run evidence
-results_benchmark/      Generated results and temporary work
-results_pilot20/        Larger artificial pilot results
-cache/                  Managed environments, packages and generated bundles
+config/            Settings, method registry, zero policies, manifest examples
+workflow/          Snakefile, rules, schemas, R/Python adapters, pinned environments
+src/magician/      Testable scientific logic
+profiles/          Local, SLURM and testing profiles
+tools/             Environment bootstrap, matrix screening, genome manifests
+tests/             Regression tests and R adapter validation
+docs/              Methods, storage, validation record, extension plan
+plan.md            Experiment plan for the paper
 ```
 
-Historical code, datasets, third-party checkouts, old plans and the four-genome smoke
-results are preserved under archive/2026-10-02. Moves retain file contents, including
-pre-existing uncommitted edits. The [archive index](archive/README.md) links the move
-manifest and explains restoration. Active environment caches stay in cache/ so
-subsequent runs reuse them. run_magician.py launches the active pipeline.
-
-## Development
-
-```bash
-pip install -e '.[test]'
-pytest -q
-snakemake -s workflow/Snakefile --workflow-profile profiles/testing --dry-run
-python tests/integration/validate_adapters.py --conda-prefix cache/conda
-```
-
-The testing profile uses tools on PATH and is for development. CI checks regression
-tests and the complete DAG. The adapter validation script exercises the real R
-contract and every real adapter on reproducible fixtures: positive and negative
-effects, structural zeros, a zero library, a reserved `other` category, a single
-feature, an empty catalogue, permuted sample order, reversed group labels, incomplete
-metadata, an undeclared input metric and an explicit timeout. See
-[methods](docs/methods.md) for scientific assumptions, [validation](docs/validation.md)
-for executed tests, versions and commands, and the
-[extension plan](docs/extension_plan.md) for the study design.
-
-Copyright 2023 Kat Steinke. Original MAGICIAN code is licensed under Apache 2.0.
+Further reading: [validation record](docs/validation.md), [methods](docs/methods.md),
+[extension plan](docs/extension_plan.md).
