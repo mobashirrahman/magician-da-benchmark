@@ -1,0 +1,17 @@
+# LOCOM is installed from a pinned Git checkout, recorded in the env lock.
+channels: [conda-forge, bioconda]
+dependencies:
+  - c-compiler
+  - cxx-compiler
+  - fortran-compiler
+  - make
+  - r-base=4.4.3
+  - r-jsonlite=1.9.1
+  - r-matrix=1.7-6
+  - r-foreach
+  - r-rcpp=1.1.2
+  - r-rcpparmadillo
+  - r-permute
+  - bioconductor-biocparallel=1.40.0
+  - r-matrixstats
+  - r-abind

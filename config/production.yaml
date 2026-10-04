@@ -1,0 +1,13 @@
+# Overlay on config/config.yaml. Supply a genome manifest before running.
+output_dir: results_production
+experiment:
+  seeds: [42, 43, 44, 45, 46]
+  samples_per_group: 10
+  read_pairs: 500000            # Pilot depth; preflight checks actual genome sizes.
+  differential_fraction: 0.15
+resources:
+  threads: 4
+  assembly_mem_mb: 16000
+  mapping_mem_mb: 4000
+  binning_mem_mb: 4000
+  da_mem_mb: 4000

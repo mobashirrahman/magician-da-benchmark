@@ -1,0 +1,67 @@
+"""MAGICIAN: controlled simulation → shared MAGs → DA → truth evaluation.
+
+Two input modes share one analysis path. `simulation` builds reads, one assembly and
+one binning catalogue per case. `matrix` imports a versioned bundle of count matrices
+and latent truth, so new methods and matrix designs never need reads or assembly.
+"""
+from pathlib import Path
+import sys
+
+REPO = Path(workflow.basedir).parent.resolve()
+sys.path.insert(0, str(REPO / "src"))
+from magician.config import load, cases, samples, combinations, registry, zero_policies
+from magician import matrix
+
+configfile: str(REPO / "config/config.yaml")
+CFG = load(overrides=config)
+from snakemake.utils import validate
+validate(CFG, str(REPO / "workflow/schemas/config.schema.yaml"))
+OUT = str((REPO / CFG["output_dir"]).resolve())
+ENV_PREFIX = str((REPO / CFG["cache_dir"] / "envs").resolve())
+CACHE = str((REPO / CFG["cache_dir"]).resolve())
+REG = registry(CFG)
+REGISTRY = str(REG.path)
+ADAPTER_DIR = REG.adapter_dir
+POLICY_FILE = str((REPO / CFG["analysis"]["zero_handling_policies"]).resolve())
+MATRIX_MODE = CFG["input_mode"] == "matrix"
+if MATRIX_MODE:
+    CASES = matrix.cases(CFG)
+    KINDS = ["sources"]
+    SAMPLES = []
+else:
+    CASES = cases(CFG)
+    KINDS = ["sources", "mags"]
+    SAMPLES = samples(CFG)
+COMBINATIONS = combinations(CFG)
+REF = f"{OUT}/work/references"
+PYENV = str(REPO / "workflow/envs/python.yaml")
+BIOENV = str(REPO / "workflow/envs/bio.yaml")
+STEP = str(REPO / "workflow/scripts/step.py")
+PREVIOUS = {case: CASES[i-1] if i else None for i, case in enumerate(CASES)}
+
+include: "rules/common.smk"
+
+wildcard_constraints:
+    case="(?:null|spiked)_s[0-9]+",
+    sample="[CT][0-9]+",
+    kind="sources|mags",
+    metric="counts|tpm|rpkm|relative",
+    method="[a-z0-9_]+"
+
+rule all:
+    input:
+        f"{OUT}/benchmark/report.html",
+        f"{OUT}/benchmark/recommendations.json",
+        f"{OUT}/benchmark/storage.json",
+        expand(f"{OUT}/evaluation/{{case}}/scores.tsv", case=CASES),
+        [f"{OUT}/da/{case}/{kind}/{metric}/{method}.status.json"
+         for case in CASES for kind in KINDS for metric, method in COMBINATIONS]
+    default_target: True
+
+if MATRIX_MODE:
+    include: "rules/matrix.smk"
+else:
+    include: "rules/setup.smk"
+    include: "rules/genomes.smk"
+include: "rules/analysis.smk"
+include: "rules/report.smk"

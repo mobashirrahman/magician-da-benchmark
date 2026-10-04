@@ -1,0 +1,19 @@
+# Larger artificial end-to-end pilot. New methods are planned, not enabled here.
+output_dir: results_pilot20
+genomes:
+  synthetic_count: 20
+  synthetic_length: 350000
+  synthetic_contigs: 50
+experiment:
+  scenarios: ["null", spiked]
+  seeds: [1001]
+  samples_per_group: 10
+  read_pairs: 200000
+  biological_cv: 0.30
+  differential_fraction: 0.20
+  effect_size: 4.0
+resources:
+  threads: 4
+  assembly_mem_mb: 8000
+storage:
+  budget_gb: 100

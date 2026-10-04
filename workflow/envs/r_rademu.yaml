@@ -1,0 +1,15 @@
+# radEmu is pinned to the CRAN release, not the development site's newer version.
+# No pseudocount is introduced anywhere in its pipeline.
+channels: [conda-forge, bioconda]
+dependencies:
+  - c-compiler
+  - cxx-compiler
+  - fortran-compiler
+  - make
+  - r-base=4.4.3
+  - r-jsonlite=1.9.1
+  - r-matrix=1.7-6
+  - r-mass
+  - r-magrittr
+  - r-rlang
+  - r-foreach

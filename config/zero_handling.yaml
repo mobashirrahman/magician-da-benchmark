@@ -1,0 +1,28 @@
+# Declared, unit-aware zero handling policies.
+#
+# A policy is a sensitivity variant of one dataset, never an independent biological
+# dataset. Every method entry in config/methods.yaml that uses `transform: clr`
+# names exactly one of these policies, and the truth CLR lane is computed in the
+# matching coordinates.
+#
+#   pseudocount + measurement   add the constant in the metric's own units. This is
+#                               what a fixed 0.5 offset does to proportions, TPM and
+#                               counts alike, so the same constant means three
+#                               different things.
+#   pseudocount + count         add the constant in expected-count units, so one
+#                               constant means the same thing on every input scale.
+#   dirichlet                   replace zeros by the posterior mean of a Dirichlet
+#                               fitted to the same sample; a multiplicative zero model
+#                               with no pseudocount anywhere.
+policies:
+  - name: pseudocount_measurement
+    zero_handling: pseudocount
+    pseudocount: 0.5
+    pseudocount_scale: measurement
+  - name: pseudocount_count
+    zero_handling: pseudocount
+    pseudocount: 0.5
+    pseudocount_scale: count
+  - name: dirichlet
+    zero_handling: dirichlet
+    dirichlet_alpha: 0.5

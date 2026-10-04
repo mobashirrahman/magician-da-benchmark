@@ -1,8 +1,0 @@
-name: metaspades_env
-channels:
-  - conda-forge
-  - bioconda
-  - defaults
-dependencies:
-  - spades=3.14
-  - python<3.3

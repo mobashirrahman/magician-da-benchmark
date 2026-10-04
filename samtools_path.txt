@@ -1,1 +1,0 @@
-/home/mrahman/mamba_root/envs/cami_env_py2/bin/samtools

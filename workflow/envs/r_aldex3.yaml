@@ -1,0 +1,26 @@
+# ALDEx 3 ships with compiled C++17 dependencies, so the toolchain is part of the
+# frozen environment. Its documented streaming threshold is set per job in the adapter,
+# not left at the 8000 MB default.
+channels: [conda-forge, bioconda]
+dependencies:
+  - c-compiler
+  - cxx-compiler
+  - fortran-compiler
+  - make
+  - r-base=4.4.3
+  - r-jsonlite=1.9.1
+  - r-matrix=1.7-6
+  - r-data.table
+  - r-rcpp=1.1.2
+  - r-rcppeigen=0.3.4.0.2
+  - r-rcppparallel=6.2.1
+  - r-foreach
+  - r-purrr
+  - r-lme4
+  - r-lmertest
+  - r-reformulas
+  - r-mass
+  - r-nlme
+  - r-abind
+  - r-matrixstats
+  - r-tmb

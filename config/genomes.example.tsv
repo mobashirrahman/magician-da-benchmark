@@ -1,0 +1,5 @@
+genome_id	path
+genome_a	/path/to/genome_a.fna.gz
+genome_b	/path/to/genome_b.fna.gz
+genome_c	/path/to/genome_c.fna.gz
+genome_d	/path/to/genome_d.fna.gz

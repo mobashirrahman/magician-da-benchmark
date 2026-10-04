@@ -1,0 +1,15 @@
+executor: local
+cores: 4
+use-conda: true
+conda-prefix: cache/conda
+rerun-incomplete: true
+printshellcmds: true
+latency-wait: 30
+resources:
+  mem_mb: 16000
+  disk_mb: 80000
+  io_jobs: 2
+set-resource-scopes:
+  mem_mb: global
+  disk_mb: global
+  io_jobs: global

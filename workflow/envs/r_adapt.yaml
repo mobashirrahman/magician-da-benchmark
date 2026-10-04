@@ -1,0 +1,9 @@
+# ADAPT models zeros as censored observations and takes phyloseq objects.
+channels: [conda-forge, bioconda]
+dependencies:
+  - r-base=4.5.3
+  - r-jsonlite=2.0.0
+  - bioconductor-adapt=1.4.0
+  - bioconductor-phyloseq=1.54.2
+  - r-matrix=1.7-5
+  - r-foreach

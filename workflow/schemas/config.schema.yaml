@@ -1,0 +1,101 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+additionalProperties: false
+required: [output_dir, cache_dir, input_mode, matrix_input, genomes, experiment, simulation, assembly, binning, mapping, matching, analysis, storage, resources]
+properties:
+  output_dir: {type: string, minLength: 1}
+  cache_dir: {type: string, minLength: 1}
+  input_mode: {enum: [simulation, matrix]}
+  matrix_input:
+    type: object
+    additionalProperties: false
+    properties:
+      bundle: {type: [string, 'null']}
+  genomes:
+    type: object
+    additionalProperties: false
+    properties:
+      manifest: {type: [string, 'null']}
+      synthetic_count: {type: integer, minimum: 4}
+      synthetic_length: {type: integer, minimum: 10000}
+      synthetic_contigs: {type: integer, minimum: 1}
+  experiment:
+    type: object
+    additionalProperties: false
+    properties:
+      scenarios: {type: array, minItems: 1, uniqueItems: true, items: {enum: ['null', spiked]}}
+      seeds: {type: array, minItems: 1, uniqueItems: true, items: {type: integer, minimum: 1}}
+      samples_per_group: {type: integer, minimum: 3}
+      read_pairs: {type: integer, minimum: 1}
+      library_cv: {type: number, minimum: 0, maximum: 2}
+      biological_cv: {type: number, minimum: 0, maximum: 2}
+      differential_fraction: {type: number, exclusiveMinimum: 0, maximum: 1}
+      effect_size: {type: number, exclusiveMinimum: 1}
+      load_information: {type: boolean}
+      load_cv: {type: number, minimum: 0, maximum: 2}
+  simulation:
+    type: object
+    additionalProperties: false
+    properties:
+      read_length: {type: integer, minimum: 1}
+      insert_size: {type: integer, minimum: 1}
+      insert_sd: {type: number, minimum: 0}
+      error_rate: {type: number, minimum: 0, exclusiveMaximum: 0.25}
+  assembly:
+    type: object
+    additionalProperties: false
+    properties:
+      min_contig_length: {type: integer, minimum: 1}
+      k_list: {type: array, minItems: 1, uniqueItems: true, items: {type: integer, minimum: 15}}
+  binning:
+    type: object
+    additionalProperties: false
+    properties:
+      min_bin_size: {type: integer, minimum: 1}
+      min_contig_length: {type: integer, minimum: 1}
+  mapping:
+    type: object
+    additionalProperties: false
+    properties:
+      min_mapq: {type: integer, minimum: 0, maximum: 60}
+  matching:
+    type: object
+    additionalProperties: false
+    properties:
+      min_identity: {type: number, minimum: 0, maximum: 1}
+      min_aligned_fraction: {type: number, minimum: 0, maximum: 1}
+      ambiguity_margin: {type: number, minimum: 0, maximum: 1}
+  analysis:
+    type: object
+    additionalProperties: false
+    properties:
+      method_registry: {type: string, minLength: 1}
+      methods: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1}}
+      metrics: {type: array, minItems: 1, uniqueItems: true, items: {enum: [counts, tpm, rpkm, relative]}}
+      alpha: {type: number, exclusiveMinimum: 0, exclusiveMaximum: 1}
+      min_total_count: {type: integer, minimum: 0}
+      min_prevalence: {type: number, minimum: 0, maximum: 1}
+      mc_samples: {type: integer, minimum: 16}
+      allow_method_failures: {type: boolean}
+      da_timeout_minutes: {type: integer, minimum: 1}
+      enable_status: {type: array, minItems: 1, uniqueItems: true, items: {enum: [active, planned]}}
+      truth_reference: {enum: [median_feature, learned_set, declared_reference_feature]}
+      truth_reference_feature: {type: [string, 'null']}
+      reserve_other: {type: boolean}
+      zero_handling_policies: {type: string, minLength: 1}
+  storage:
+    type: object
+    additionalProperties: false
+    properties:
+      budget_gb: {type: number, exclusiveMinimum: 0}
+      environment_reserve_gb: {type: number, minimum: 0}
+      headroom_gb: {type: number, minimum: 0}
+  resources:
+    type: object
+    additionalProperties: false
+    properties:
+      threads: {type: integer, minimum: 1}
+      assembly_mem_mb: {type: integer, minimum: 1}
+      mapping_mem_mb: {type: integer, minimum: 1}
+      binning_mem_mb: {type: integer, minimum: 1}
+      da_mem_mb: {type: integer, minimum: 1}

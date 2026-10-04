@@ -1,7 +1,0 @@
-name: read_qc
-channels:
-  - conda-forge
-  - bioconda
-  - defaults
-dependencies:
-  - fastqc

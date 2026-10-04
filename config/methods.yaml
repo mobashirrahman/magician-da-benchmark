@@ -1,0 +1,525 @@
+# Differential abundance method registry.
+#
+# Every method the workflow can schedule is declared here once. `method_family`
+# identifies the statistical model; `variant` distinguishes declared settings of
+# that model (for example ALDEx2 gamma choices or a declared zero-handling
+# policy). Two registry entries that share a family are never reported as
+# independent methods.
+#
+# Fields
+#   id                  selector used in analysis.methods
+#   method_family       statistical model family; shared by all its variants
+#   variant             declared setting label within the family
+#   adapter             file stem under workflow/scripts/da/
+#   environment         env stem under workflow/envs/
+#   package             R package providing the test, or null for base R
+#   package_version     version observed when the adapter was validated
+#   accepted_inputs     matrix metrics this method may legally receive
+#   transform           transform the shared contract applies before the adapter
+#   zero_policy         declared entry from config/zero_handling.yaml, or none
+#   truth_lane_policy   CLR geometry the endpoint is scored against; defaults to
+#                       zero_policy. A package that normalizes counts internally, such
+#                       as ALDEx with a non-zero gamma, declares the declared geometry
+#                       that matches its own zero model.
+#   endpoint            estimand the method's effect belongs to
+#   hypothesis          what the test rejects, in words
+#   effect_scale        units of the reported effect
+#   reference           feature set the effect is expressed against
+#   contrast            group contrast, always Treatment relative to Control
+#   adjustment_family   multiple-testing correction the package itself applies
+#   native_q            whether the package returns adjusted p-values
+#   parameters          declared package settings; a settings change is a variant
+#   thread_cap          maximum threads the adapter may use
+#   seed                whether the adapter consumes the job seed
+#   citation            primary reference
+#   status              active | planned | deferred
+#
+# `endpoint` must match an entry in `endpoints`, and `endpoint.lane` must exist
+# in src/magician/truth.py; otherwise validation fails before any job is built.
+schema_version: 1
+endpoints:
+  relative_abundance:
+    lane: relative_genomic_abundance
+    description: change in length-corrected relative abundance of a source or MAG
+  read_fraction:
+    lane: expected_read_fraction
+    description: change in expected read or DNA fraction, the scale of raw counts
+  clr:
+    lane: clr_log_ratio
+    description: change relative to the geometric mean of the tested features
+  reference_relative:
+    lane: reference_relative_change
+    description: change relative to a declared reference or typical feature
+  absolute_abundance:
+    lane: absolute_abundance
+    description: change in absolute abundance per sample; requires simulated or measured load
+
+methods:
+  - id: wilcoxon_clr
+    method_family: clr_wilcoxon
+    variant: pseudocount_measurement
+    adapter: wilcoxon_clr
+    environment: r_core
+    package: null
+    package_version: null
+    accepted_inputs: [counts, tpm, rpkm, relative]
+    transform: clr
+    zero_policy: pseudocount_measurement
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio of the tested features
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {}
+    thread_cap: 1
+    seed: false
+    citation: "Benjamini and Hochberg (1995) controlling the FDR; base R stats::wilcox.test"
+    status: active
+
+  - id: wilcoxon_clr_count_scale
+    method_family: clr_wilcoxon
+    variant: pseudocount_count
+    adapter: wilcoxon_clr
+    environment: r_core
+    package: null
+    package_version: null
+    accepted_inputs: [counts, tpm, rpkm, relative]
+    transform: clr
+    zero_policy: pseudocount_count
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio of the tested features
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {}
+    thread_cap: 1
+    seed: false
+    citation: "Benjamini and Hochberg (1995) controlling the FDR; base R stats::wilcox.test"
+    status: planned
+
+  - id: maaslin2
+    method_family: linear_clr
+    variant: pseudocount_measurement
+    adapter: maaslin2
+    environment: r_extended
+    package: Maaslin2
+    package_version: "1.22.0"
+    accepted_inputs: [counts, tpm, rpkm, relative]
+    transform: clr
+    zero_policy: pseudocount_measurement
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio of the tested features
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {normalization: NONE, transform: NONE, standardize: false}
+    thread_cap: 1
+    seed: false
+    citation: "Mallick et al. (2021) MaAsLin2, Genome Biology"
+    status: active
+
+  - id: maaslin2_count_scale
+    method_family: linear_clr
+    variant: pseudocount_count
+    adapter: maaslin2
+    environment: r_extended
+    package: Maaslin2
+    package_version: "1.22.0"
+    accepted_inputs: [counts, tpm, rpkm, relative]
+    transform: clr
+    zero_policy: pseudocount_count
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio of the tested features
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {normalization: NONE, transform: NONE, standardize: false}
+    thread_cap: 1
+    seed: false
+    citation: "Mallick et al. (2021) MaAsLin2, Genome Biology"
+    status: planned
+
+  - id: deseq2
+    method_family: count_nb
+    variant: default
+    adapter: deseq2
+    environment: r_core
+    package: DESeq2
+    package_version: "1.46.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: read_fraction
+    hypothesis: the two groups differ in expected DNA/read fraction
+    effect_scale: log2_read_fraction
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {sfType: poscounts, independentFiltering: false}
+    thread_cap: 1
+    seed: false
+    citation: "Love, Huber and Anders (2014) Genome Biology"
+    status: active
+
+  - id: edger
+    method_family: count_nb
+    variant: tmm
+    adapter: edger
+    environment: r_core
+    package: edgeR
+    package_version: "4.4.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: read_fraction
+    hypothesis: the two groups differ in expected DNA/read fraction
+    effect_scale: log2_read_fraction
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {normalization: TMM, fit: quasi_likelihood}
+    thread_cap: 1
+    seed: false
+    citation: "Robinson and Oshlack (2010) edgeR; McCarthy and Chen (2014) quasi-likelihood F-test"
+    status: active
+
+  - id: limma_voom
+    method_family: count_nb
+    variant: voom_tmm
+    adapter: limma_voom
+    environment: r_core
+    package: limma
+    package_version: "3.62.1"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: read_fraction
+    hypothesis: the two groups differ in expected DNA/read fraction
+    effect_scale: log2_read_fraction
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {normalization: TMM, fit: lm}
+    thread_cap: 1
+    seed: false
+    citation: "Law et al. (2014) voom, Genome Biology"
+    status: active
+
+  - id: ancombc2
+    method_family: count_compositional
+    variant: default
+    adapter: ancombc2
+    environment: r_extended
+    package: ANCOMBC
+    package_version: "2.14.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: relative_abundance
+    hypothesis: the two groups differ in expected count after sample-scaled compositional correction
+    effect_scale: log2_relative_abundance
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {pseudo_sens: true, struc_zero: false}
+    thread_cap: 1
+    seed: false
+    citation: "Lin and Peddada (2020) ANCOM-BC2, Microbiome"
+    status: active
+
+  - id: aldex2_g0
+    method_family: dirichlet_clr
+    variant: gamma_0
+    adapter: aldex2
+    environment: r_extended
+    package: ALDEx2
+    package_version: "1.42.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: none
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio of the tested features
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {gamma: 0.0, mc_samples: 128}
+    thread_cap: 1
+    seed: true
+    citation: "Fernandes et al. (2014) ALDEx2, Genome Biology"
+    status: active
+
+  - id: aldex2
+    method_family: dirichlet_clr
+    variant: gamma_0.5
+    adapter: aldex2
+    environment: r_extended
+    package: ALDEx2
+    package_version: "1.42.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: dirichlet
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio of the tested features
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {gamma: 0.5, mc_samples: 128}
+    thread_cap: 1
+    seed: true
+    citation: "Fernandes et al. (2014) ALDEx2, Genome Biology"
+    status: active
+
+  - id: maaslin3_abundance
+    method_family: hurdle_linear
+    variant: abundance_only
+    adapter: maaslin3
+    environment: r_maaslin3
+    package: maaslin3
+    package_version: "1.4.0"
+    accepted_inputs: [relative]
+    transform: none
+    zero_policy: none
+    endpoint: relative_abundance
+    hypothesis: the two groups differ in non-zero log relative abundance; presence is modelled separately
+    effect_scale: log2_relative_abundance
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {normalization: NONE, transform: LOG, standardize: false, reference: "group,Control",
+                 median_comparison_abundance: false, evaluate_only: abundance}
+    thread_cap: 1
+    seed: true
+    citation: "Mallick et al. (2026) MaAsLin 3, Nature Methods"
+    status: active
+
+  - id: maaslin3_corrected
+    method_family: hurdle_linear
+    variant: composition_corrected
+    adapter: maaslin3
+    environment: r_maaslin3
+    package: maaslin3
+    package_version: "1.4.0"
+    accepted_inputs: [relative]
+    transform: none
+    zero_policy: none
+    endpoint: reference_relative
+    hypothesis: the two groups differ in log relative abundance relative to the typical feature
+    effect_scale: log2_reference_relative
+    reference: median_feature
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {normalization: NONE, transform: LOG, standardize: false, reference: "group,Control",
+                 median_comparison_abundance: true, evaluate_only: abundance}
+    thread_cap: 1
+    seed: true
+    citation: "Mallick et al. (2026) MaAsLin 3, Nature Methods"
+    status: active
+
+  - id: aldex3_g0
+    method_family: scale_dirichlet_clr
+    variant: gamma_0
+    adapter: aldex3
+    environment: r_aldex3
+    package: ALDEx3
+    package_version: "1.3.1"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: none
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio under a fitted scale model
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {method: lm, scale: clr.sm, gamma: 0.0, test: t.HC3, mc_samples: 128, stream_size_mb: 256}
+    thread_cap: 1
+    seed: true
+    citation: "Fernandes (2026) ALDEx3 on CRAN; scale-model comparison, PLOS Computational Biology"
+    status: active
+
+  - id: aldex3
+    method_family: scale_dirichlet_clr
+    variant: gamma_0.5
+    adapter: aldex3
+    environment: r_aldex3
+    package: ALDEx3
+    package_version: "1.3.1"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: dirichlet
+    endpoint: clr
+    hypothesis: the two groups differ in expected log2 centred log-ratio under a fitted scale model
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {method: lm, scale: clr.sm, gamma: 0.5, test: t.HC3, mc_samples: 128, stream_size_mb: 256}
+    thread_cap: 1
+    seed: true
+    citation: "Fernandes (2026) ALDEx3 on CRAN; scale-model comparison, PLOS Computational Biology"
+    status: active
+
+  - id: adapt
+    method_family: censored_reference
+    variant: default
+    adapter: adapt
+    environment: r_adapt
+    package: ADAPT
+    package_version: "1.4.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: reference_relative
+    hypothesis: the two groups differ in expected count relative to a learned reference set
+    effect_scale: log2_reference_relative
+    reference: learned_set
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {alpha: 0.05, prev_filter: 0, depth_filter: 0}
+    thread_cap: 1
+    seed: true
+    citation: "Zhu et al. (2024) ADAPT, Bioinformatics"
+    status: active
+
+  - id: rademu
+    method_family: typical_change
+    variant: default
+    adapter: rademu
+    environment: r_rademu
+    package: radEmu
+    package_version: "2.3.2.0"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: reference_relative
+    hypothesis: the two groups differ in expected count relative to the typical taxon change
+    effect_scale: log2_reference_relative
+    reference: median_feature
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {test_kj: treatment_only, tolerance: 0.0001, remove_zero_comparison_pvals: 0.01}
+    thread_cap: 1
+    seed: true
+    citation: "STATDIV lab radEmu documentation; Biometrika 2026"
+    status: active
+
+  - id: linda
+    method_family: bias_corrected_clr
+    variant: default
+    adapter: linda
+    environment: r_linda
+    package: MicrobiomeStat
+    package_version: "1.4.0"
+    accepted_inputs: [counts, relative]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: none
+    endpoint: clr
+    hypothesis: the two groups differ in expected bias-corrected log ratio to a reference feature
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {adaptive: true, zero_handling: imputation, pseudo_cnt: 0.5, corr_cut: 0.1}
+    thread_cap: 1
+    seed: true
+    citation: "Zhu et al. (2022) LinDA, Genome Biology"
+    status: active
+
+  - id: zicoseq
+    method_family: compositional_permutation
+    variant: default
+    adapter: zicoseq
+    environment: r_zicoseq
+    package: GUniFrac
+    package_version: "1.8"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: none
+    endpoint: clr
+    hypothesis: the two groups differ in expected posterior ratio of the tested feature to the reference
+    effect_scale: f_statistic
+    reference: posterior_median
+    contrast: Treatment / Control
+    adjustment_family: FDR
+    native_q: true
+    parameters: {perm_no: 999, post_sample_no: 25, ref_pct: 0.5}
+    thread_cap: 1
+    seed: true
+    citation: "Zhu, Chen and Sun (2022) ZicoSeq, Microbiome"
+    status: active
+
+  - id: locom
+    method_family: compositional_logistic
+    variant: default
+    adapter: locom
+    environment: r_locom
+    package: LOCOM
+    package_version: "github:yijuanhu/LOCOM@76f8c8d"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: reference_relative
+    hypothesis: the two groups differ in expected count relative to the typical taxon, under a compositional logistic model
+    effect_scale: log_ratio_reference
+    reference: median_feature
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: true
+    parameters: {perm_no: 999, filter_thresh: 0}
+    thread_cap: 1
+    seed: true
+    citation: "Hu et al. (2022) LOCOM, PNAS"
+    status: planned
+
+  - id: metageenome_gee
+    method_family: gee_compositional
+    variant: da_component_only
+    adapter: metageenome
+    environment: r_metageenome
+    package: metaGEENOME
+    package_version: "github:M-Mysara/metaGEENOME"
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    truth_lane_policy: none
+    endpoint: clr
+    hypothesis: the two groups differ in expected CLR under a GEE fitted over independent subjects
+    effect_scale: log2_clr
+    reference: geometric_mean_of_tested_features
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {ctf: true}
+    thread_cap: 1
+    seed: true
+    citation: "Mysara et al. (2025) metaGEENOME, BMC Bioinformatics"
+    status: deferred

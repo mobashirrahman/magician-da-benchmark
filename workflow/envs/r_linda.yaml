@@ -1,0 +1,28 @@
+# LinDA's package is MicrobiomeStat. Zero handling is adaptive and internal, so no
+# pseudocount is added upstream.
+channels: [conda-forge, bioconda]
+dependencies:
+  - c-compiler
+  - cxx-compiler
+  - fortran-compiler
+  - make
+  - r-base=4.4.3
+  - r-jsonlite=1.9.1
+  - r-matrix=1.7-6
+  - r-rcpp=1.1.2
+  - r-rcpparmadillo
+  - r-foreach
+  - r-doparallel
+  - r-ggplot2
+  - r-matrixstats
+  - r-statmod
+  - r-mass
+  - r-ggrepel
+  - r-lmertest
+  - r-reformulas
+  - r-modeest
+  - r-dplyr
+  - r-mlr3
+  - r-mlr3mbo
+  - r-bbotk
+  - r-paradox

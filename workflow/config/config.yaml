@@ -1,8 +1,0 @@
-# Minimal configuration for testing replicates
-samples_file: workflow/config/samples.tsv
-camisim_path: /path/to/CAMISIM
-replicates: 2
-
-# Optional settings (add defaults if not specified)
-profile_type: mbarc
-insert_size: 270 

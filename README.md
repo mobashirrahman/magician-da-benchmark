@@ -1,133 +1,230 @@
-# MAGICIAN
-MAGICIAN is a tool for easily generating simulated metagenome-assembled genomes from a user-determined "community".
-# Workflow overview
-## Top-level overview
-![figs/workflow_overview.png](figs/workflow_overview.png)
-## Detailed overview with tools
-![figs/workflow_details.png](figs/workflow_details.png)
-# Requirements
-MAGICIAN is a Snakemake pipeline that uses conda or mamba to manage dependencies.
-Thus, it primarily requires Snakemake and conda or mamba to be used (mamba is recommended). \
-Requirements for the base environment are given in `requirements.yml` and can be installed as follows:
+# MAGICIAN: differential abundance benchmarks on MAGs
 
-**Using conda**:
-```commandline
-conda env create --file requirements.yml
+MAGICIAN simulates controlled communities, reconstructs a shared MAG catalogue,
+quantifies source genomes and MAGs separately, runs multiple differential abundance
+methods, and scores discoveries against truth defined on the measurement scale each
+method actually tests. It retains compact benchmark results and audit evidence;
+sequencing intermediates are temporary.
+
+The default is an artificial **software smoke test**: four genomes, six independent
+samples, one null experiment and one spiked experiment. Use real genomes and repeated
+independent seeds before interpreting method rankings.
+
+## Workflow
+
+```mermaid
+flowchart TD
+    A[Source genomes and controlled design] --> B[wgsim paired reads]
+    B --> C[One MEGAHIT assembly per experiment]
+    C --> D[Map samples to common contigs]
+    D --> E[Multi-sample depth and one MetaBAT2 catalogue]
+    E --> F[Reuse contig alignments for MAG counts]
+    B --> G[Separate source-genome mapping]
+    E --> H[Assign MAGs to sources for evaluation]
+    F --> I[Durable raw counts, lengths and library totals]
+    I --> J[Derived matrices: filter, reserved other, normalize]
+    J --> K[Truth lanes from the latent design]
+    K --> L[Registry-driven DA methods]
+    L --> M[Truth scores, rankings, plots and report]
+    H --> M
+    N[Matrix bundle: counts plus latent truth] --> I
 ```
 
-**Using mamba**:
-```commandline
-mamba env create --file requirements.yml
+Methods are declared once in [config/methods.yaml](config/methods.yaml) and run
+through small adapters under `workflow/scripts/da/`. Count methods receive actual
+counts. Compositional methods also compare TPM, RPKM and relative abundance. Missing
+packages, empty catalogues and timeouts are explicit and cannot become winners.
+
+## Setup and smoke run
+
+```bash
+conda env create -n magician --file environment.yaml
+conda activate magician
+python run_magician.py --dry-run
+python run_magician.py --cores 4
 ```
 
-It is also necessary to install [a fork of CAMISIM 1.2](https://github.com/KatSteinke/CAMISIM)
-in order to use custom error profiles. This can be done by running
-```commandline
-git clone https://github.com/KatSteinke/CAMISIM
-```
-# Getting started
-In order to get started with MAGICIAN, simply clone the repository:
-```commandline
-git clone https://github.com/KatSteinke/magician
+Standard Snakemake commands also work:
+
+```bash
+export CONDA_PKGS_DIRS="$PWD/cache/packages"
+export XDG_CACHE_HOME="$PWD/cache/xdg"
+snakemake --snakefile workflow/Snakefile --cores 4 --dry-run
+snakemake --snakefile workflow/Snakefile --cores 4
 ```
 
-You will also have to adapt the config file given under [config/default_config.yml](config/default_config.yml). 
-## CAMISIM database settings
-Change the path given under `camisim_path` in `default_config.yml`to the path to your forked copy of CAMISIM.
+Snakemake reads profiles/default/config.yaml automatically. Executable rules have
+pinned Conda environments, threads, memory/disk resources, logs and benchmarks.
+Python module fingerprints, the R contract, the selected adapter and the method
+registry are tracked dependencies: changing one reruns testing and scoring while
+retaining expensive upstream results. First installation needs network access. The
+SLURM profile under profiles/slurm requires its executor plugin plus your
+account/partition settings.
 
-## CAMISIM sample generation mode
-MAGICIAN now defaults to using **differential mode** for CAMISIM sample generation, which is ideal for differential abundance (DA) studies. In this mode, each sample's genome abundances are drawn independently from a log-normal distribution, creating the variation needed for DA analysis.
+Methods whose R packages are not distributed through conda are installed from pinned
+CRAN tarballs, pinned Bioconductor release tarballs or pinned Git commits, before any
+run. No DA rule touches the network:
 
-Available modes:
-- `differential` (default): Independent log-normal distributions for each sample - ideal for DA studies
-- `replicates`: Samples derived from a base profile with added noise
-- `timeseries_normal`: Time series with normal distribution noise
-- `timeseries_lognormal`: Time series with log-normal distribution noise
-
-To change the mode, add `sample_type: [mode]` to your config file or use the `--sample_type` parameter.
-
-## Package management system (conda/mamba)
-If you use mamba (recommended due to speed), change the setting for `conda_frontend` to `mamba`. 
-# Running MAGICIAN
-## Preparing the input 
-MAGICIAN requires the following files to run:
-* genome sequences of the organisms the simulated community should consist of, in genbank or fasta format
-* a tab-separated file of sample distributions.
-The first column lists the paths to the genomes, the second lists sequence type 
-(chromosome or plasmid) and all subsequent columns list community composition names and the relative abundance of the 
-sequences in these communities:
+```bash
+python tools/bootstrap_envs.py --all            # build and freeze every method environment
+python tools/bootstrap_envs.py --env r_aldex3   # or one at a time
 ```
-| genomes          | seq_type   | community1 | community2 | ... |
-|------------------|------------|------------|------------|-----|
-| /path/to/genome1 | chromosome | 1          | 1.5        |     |
-| /path/to/genome2 | chromosome | 1          | 0          |     |
-| /path/to/plasmid | plasmid    | 1          | 1          |     |
-  ```
-## Starting MAGICIAN
-MAGICIAN is started using `run_magician.py`:
+
+Exact resolved builds, checksums and pinned sources are archived under
+workflow/envs/locks; see its README.
+
+Open **results_benchmark/benchmark/report.html** after completion.
+
+The larger artificial pilot uses 20 genomes and 10 samples per group:
+
+```bash
+python run_magician.py --configfile config/pilot20.yaml --cores 8
 ```
-run_magician.py [-h] [--target TARGET]
-                       [--profile_type {mbarc,hi,mi,hi150,own}]
-                       [--profile_name PROFILE_NAME]
-                       [--profile_readlength PROFILE_READLENGTH]
-                       [--insert_size INSERT_SIZE] [--cluster CLUSTER]
-                       [--config_file CONFIG_FILE]
-                       [--cores CORES]
-                       community_file
-                       [--snake_flags "SNAKE_FLAGS..."]
 
+Its report is `results_pilot20/benchmark/report.html`. The completed
+[pilot record](docs/validation.md#twenty-genome-artificial-pilot) describes recovery,
+discoveries and resources for the original seven methods. The
+[extension plan](docs/extension_plan.md) covers the new methods, truth lanes and
+repeated studies; the [status section](docs/extension_plan.md#implementation-status)
+records what is implemented and validated.
+
+| File | Meaning |
+|---|---|
+| benchmark/ranking.tsv | Eligibility and ranking by catalogue/input/endpoint |
+| benchmark/scores.tsv | Per-run FDR, recall, average precision and confusion counts |
+| benchmark/recovery.tsv | Recovered, ambiguous and multiply matched source genomes |
+| benchmark/method_settings.tsv | Declared inputs, units, references, settings, citations |
+| benchmark/method_resources.tsv | Measured runtime and RSS per method and input |
+| benchmark/recommendations.json | Eligible candidate, or an explicit no-candidate result |
+| benchmark/rule_resources.tsv | Measured per-rule runtime and memory |
+| benchmark/storage.json | Retained output/cache sizes and resource summary |
+| evaluation/CASE/feature_evaluation.tsv | Discoveries joined to source truth |
+| truth/CASE/KIND.tsv | Every truth lane, with its denominator and availability |
+
+Scores retain method messages, package versions and fitting time. Empty catalogues,
+convergence failures, timeouts and unavailable packages appear as their own statuses.
+Variants of one method family are reported as a single candidate.
+
+## Matrix-only mode
+
+New methods and matrix simulations never need reads, assembly or binning. A matrix
+bundle is a versioned directory of cases, each supplying integer counts, feature
+lengths, sample metadata, the latent expectations every truth lane is computed from,
+and an identity source matching table:
+
+```text
+bundle/
+  cases.tsv                     case, scenario, seed
+  CASE/samples.tsv              sample_id, group, read_pairs
+  CASE/features.tsv             feature_id, length_bp
+  CASE/counts.tsv               feature_id and one column per sample
+  CASE/truth.tsv                feature_id, is_da, true_log2fc, lengths
+  CASE/expectations.tsv         latent per-sample proportions and counts
+  CASE/matching.tsv             feature_id, source_id, match_status
 ```
-### Required arguments
 
-* `community_file`: the tab-separated file with sample distributions for the community/communities you wish to simulate. 
-* `--snake_flags`: the flags to be passed on to Snakemake, enclosed in double quotes. For a dry run, use `"-n "`.
- For all else, refer to Snakemake's documentation.
-### Optional arguments
-* `--target`: the desired output file or rule. By default, MAGICIAN runs the entire workflow for all communities in the
-input file given. To run the workflow for a single
-community, give `summaries/bin_summary_[COMMUNITY].xlsx` here, replacing `[COMMUNITY]` with the name of the community
-you wish to simulate. 
-* `--profile_type`: the error profile CAMISIM should use for ART. This defaults to CAMISIM's default of `mbarc`; other choices
-are `hi,mi,hi150,own` . The last allows users to specify their own profiles.
-* `--profile_name`: required when specifying one's own profile. This is the base path to the forward/reverse reads' 
-error profiles (e.g. `path/to/custom/profile_R` if  forward and reverse reads are located at 
-`path/to/custom/profile_R1.txt` and `path/to/custom/profile_R2.txt` respectively)
-* `--profile_readlength`: the read length used for the custom error profile; required when specifying one's own 
-error profile.
-* `--insert_size`: mean insert size for read simulation (defaults to 270 bp)
-* `--cluster`: when using Snakemake's cluster mode, supply the command for submitting jobs as you would with Snakemake
-* `--cores`: the amount of cores Snakemake should use (default: 6)
-
-* `--config_file`: the path to the configuration file to use, if not using the default file 
-`default_config.yml`
-
-### Starting a test run
-To start a test run with the sample genomes found in test/data/test_genomes, run `python3 run_magician.py` without any arguments. The script will show usage and ask whether to start a test run:
+```yaml
+input_mode: matrix
+matrix_input:
+  bundle: config/my_bundle
 ```
-usage: run_magician.py [-h] [--target TARGET] [--profile_type {mbarc,hi,mi,hi150,own}]
-                       [--profile_name PROFILE_NAME]
-                       [--profile_readlength PROFILE_READLENGTH]
-                       [--insert_size INSERT_SIZE] [--cluster CLUSTER]
-                       [--config_file CONFIG_FILE]
-                       [--cores CORES]
-                       [--snake_flags [SNAKE_FLAGS ...]]
-                       community_file
-Start local example run with sample genomes and output to /home/kma/magician? [y/n]
-Remember to edit config/default_config.yml to specify your CAMISIM installation.
+
+The shared analysis path then runs unchanged: import, derive, truth lanes, methods,
+scoring and report. Matrix screening replicates are generated directly from a latent
+Dirichlet-multinomial model:
+
+```bash
+python tools/matrix_screening.py --designs baseline overdispersed low_count \
+    --null-replicates 100 --spiked-replicates 30 --cores 8
 ```
-Confirm with `y` to start the test run. \
-Example summary files for such a run can be found under [test/data/sample_summaries](test/data/sample_summaries); the full output is available at [Zenodo](https://doi.org/10.5281/zenodo.10081882).
-# License
-Copyright 2023 Kat Steinke
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this work except in compliance with the License.
-   You may obtain a copy of the License at
+## Real genomes and repeated experiments
 
-       http://www.apache.org/licenses/LICENSE-2.0
+Create a candidate list with genome_id, accession, version, path, provenance and
+source_group, then freeze the selection you will actually run. Nothing is downloaded,
+and an existing local reference collection is referenced by path rather than copied:
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+```bash
+python tools/real_genomes.py check config/my_candidates.tsv
+python tools/real_genomes.py freeze config/my_candidates.tsv \
+    --out config/genome_manifest.tsv \
+    --rule "longest genome per source group, then the predefined related subset" \
+    --group diverse=20 --group related=5
+```
+
+The frozen manifest records accession and version, local path, checksum, length and
+the selection rule, and is checked before any read is simulated. Create an overlay:
+
+```yaml
+genomes:
+  manifest: config/genome_manifest.tsv
+experiment:
+  seeds: [42, 43, 44, 45, 46]
+  samples_per_group: 10
+  read_pairs: 500000
+  differential_fraction: 0.15
+storage:
+  budget_gb: 100
+```
+
+```bash
+python run_magician.py --configfile config/my_experiment.yaml --dry-run
+python run_magician.py --configfile config/my_experiment.yaml --cores 4
+```
+
+Missing keys inherit config/config.yaml. config/production.yaml is a larger example.
+Increase depth after a pilot recovers usable MAGs. Zero MAGs are a valid outcome, with
+empty matrices and an explicit report. Rankings are specific to these simulations.
+
+## Storage and organization
+
+Default budget: 100 GB, configurable to 200 GB. Heavy case processing executes
+sequentially; small DA fits can overlap it. Successful completion retains no FASTQ,
+BAM, assembly or MAG FASTA. Compact matrices and evidence allow DA reruns. See
+[storage policy](docs/storage.md) for cache accounting, resource estimation, runtime
+guards and physical-cap limitations.
+
+```text
+config/                 Settings, method registry, zero policies, manifest examples
+workflow/Snakefile      Workflow entry point
+workflow/rules/         Setup, matrix import, genomes, analysis, reporting
+workflow/schemas/       Configuration schema
+workflow/scripts/       Python adapter, R contract, per-method R adapters
+workflow/envs/          Pinned tool environments
+src/magician/           Testable scientific logic
+profiles/               Local, SLURM, development profiles
+tools/                  Environment bootstrap, matrix screening, genome manifests
+tests/                  Scientific regression and R adapter validation
+docs/                   Methods, storage, validation evidence, extension plan
+archive/                Dated snapshots of historical code, data and run evidence
+results_benchmark/      Generated results and temporary work
+results_pilot20/        Larger artificial pilot results
+cache/                  Managed environments, packages and generated bundles
+```
+
+Historical code, datasets, third-party checkouts, old plans and the four-genome smoke
+results are preserved under archive/2026-10-02. Moves retain file contents, including
+pre-existing uncommitted edits. The [archive index](archive/README.md) links the move
+manifest and explains restoration. Active environment caches stay in cache/ so
+subsequent runs reuse them. run_magician.py launches the active pipeline.
+
+## Development
+
+```bash
+pip install -e '.[test]'
+pytest -q
+snakemake -s workflow/Snakefile --workflow-profile profiles/testing --dry-run
+python tests/integration/validate_adapters.py --conda-prefix cache/conda
+```
+
+The testing profile uses tools on PATH and is for development. CI checks regression
+tests and the complete DAG. The adapter validation script exercises the real R
+contract and every real adapter on reproducible fixtures: positive and negative
+effects, structural zeros, a zero library, a reserved `other` category, a single
+feature, an empty catalogue, permuted sample order, reversed group labels, incomplete
+metadata, an undeclared input metric and an explicit timeout. See
+[methods](docs/methods.md) for scientific assumptions, [validation](docs/validation.md)
+for executed tests, versions and commands, and the
+[extension plan](docs/extension_plan.md) for the study design.
+
+Copyright 2023 Kat Steinke. Original MAGICIAN code is licensed under Apache 2.0.

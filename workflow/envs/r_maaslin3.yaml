@@ -1,0 +1,28 @@
+# MaAsLin 3 1.4.0 is a Bioconductor 3.23 release package (R >= 4.4). Its Bioconductor
+# and R versions must match, so this is a separate environment from the R 4.5.3 one.
+# The pinned 1.4.0 tarball is installed into the finished environment by
+# tools/bootstrap_envs.py; see workflow/envs/locks/README.md.
+channels: [conda-forge, bioconda]
+dependencies:
+  - r-base=4.5.3
+  - r-jsonlite=2.0.0
+  - r-data.table
+  - r-matrix=1.7-5
+  - r-collapse
+  - r-lme4
+  - r-lmertest
+  - r-multcomp
+  - r-optparse
+  - r-logging
+  - r-mirai
+  - r-foreach
+  - r-doparallel
+  - r-ggnewscale
+  - r-reformulas
+  - r-patchwork
+  - r-ggplot2
+  - r-scales
+  - r-rcolorbrewer
+  - r-broom
+  - r-caret
+  - bioconductor-biocgenerics

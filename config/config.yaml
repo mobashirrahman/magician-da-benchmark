@@ -1,0 +1,67 @@
+# Paths are relative to the repository root, not to a job's working directory.
+output_dir: results_benchmark
+cache_dir: cache
+input_mode: simulation              # simulation | matrix; matrix skips reads/assembly/binning
+matrix_input:
+  bundle: null                     # Matrix mode only: directory with counts/features/samples/truth
+genomes:
+  manifest: null                   # TSV: genome_id, path; FASTA or FASTA.gz
+  synthetic_count: 4               # Artificial fixture; use real genomes for inference.
+  synthetic_length: 350000
+  synthetic_contigs: 50            # Fragmented artificial genomes exercise binning.
+experiment:
+  scenarios: ["null", "spiked"]
+  seeds: [42]
+  samples_per_group: 3
+  read_pairs: 80000                # Per sample, before lognormal library variation.
+  library_cv: 0.15
+  biological_cv: 0.20
+  differential_fraction: 0.5
+  effect_size: 4.0
+  load_information: false          # Simulate per-sample genome load for the absolute abundance lane
+  load_cv: 0.30
+simulation:
+  read_length: 150
+  insert_size: 350
+  insert_sd: 30
+  error_rate: 0.001
+assembly:
+  min_contig_length: 1500
+  k_list: [21, 41, 61, 81, 99]
+binning:
+  min_bin_size: 200000
+  min_contig_length: 1500
+mapping:
+  min_mapq: 20
+matching:
+  min_identity: 0.95
+  min_aligned_fraction: 0.90
+  ambiguity_margin: 0.05
+analysis:
+  method_registry: config/methods.yaml
+  # Registry ids. Variants of one method_family share a family in every report.
+  methods: [wilcoxon_clr, deseq2, edger, limma_voom, aldex2, ancombc2, maaslin2]
+  metrics: [counts, tpm, rpkm, relative]
+  alpha: 0.05
+  min_total_count: 10
+  min_prevalence: 0.10
+  mc_samples: 128                  # Monte Carlo draws for packages that need them
+  allow_method_failures: true
+  da_timeout_minutes: 240
+  enable_status: [active]          # Registry statuses that may be scheduled
+  truth_reference: median_feature  # median_feature | learned_set | declared_reference_feature
+  truth_reference_feature: null
+  # Declared, unit-aware zero handling, tracked as a dependency of every rule that
+  # consumes it. See config/zero_handling.yaml.
+  zero_handling_policies: config/zero_handling.yaml
+  reserve_other: false             # Add filtered counts back as one untested `other` category
+storage:
+  budget_gb: 100                   # Decimal GB, including managed environments/cache.
+  environment_reserve_gb: 15
+  headroom_gb: 2
+resources:
+  threads: 2
+  assembly_mem_mb: 4096
+  mapping_mem_mb: 2048
+  binning_mem_mb: 2048
+  da_mem_mb: 2048

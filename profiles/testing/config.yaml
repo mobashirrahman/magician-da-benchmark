@@ -1,0 +1,13 @@
+executor: local
+cores: 2
+use-conda: false
+rerun-incomplete: true
+printshellcmds: true
+resources:
+  mem_mb: 8000
+  disk_mb: 20000
+  io_jobs: 1
+set-resource-scopes:
+  mem_mb: global
+  disk_mb: global
+  io_jobs: global

@@ -15,3 +15,25 @@ is/.Rproj.user
 is/.vscode
 data/HOMD/genomes
 data/camisim_toy
+second_challenge_evaluation
+
+# MAGICIAN v2 generated outputs
+/results_benchmark/
+/results_production/
+/results_pilot20/
+/cache/
+/.pytest_cache/
+/src/*.egg-info/
+/docs/validation/*.log
+
+# Historical datasets, nested repositories and generated run evidence stay local.
+/archive/*/third_party/
+/archive/*/results/
+/archive/*/results_legacy_link
+/archive/*/validation/
+/archive/*/run_metadata/
+/archive/*/git_status_before.txt
+
+# Local run outputs and archives (not versioned)
+/results_*/
+/archive/

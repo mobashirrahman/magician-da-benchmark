@@ -1,0 +1,9 @@
+# metaGEENOME is deferred: the published wrapper bundles DA with taxonomy and
+# diversity reporting. This environment holds only what the isolated DA component
+# needs, so a partial wrapper can never be mistaken for a validated method.
+channels: [conda-forge, bioconda]
+dependencies:
+  - r-base=4.4.3
+  - r-jsonlite=1.9.1
+  - r-matrix=1.7-6
+  - r-foreach

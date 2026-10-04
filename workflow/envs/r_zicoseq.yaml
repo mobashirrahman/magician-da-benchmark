@@ -1,0 +1,25 @@
+# GUniFrac provides ZicoSeq 1.9. The permutation count is a declared variant, set per
+# job, and p.raw plus the native p.adj.fdr are both retained.
+channels: [conda-forge, bioconda]
+dependencies:
+  - c-compiler
+  - cxx-compiler
+  - fortran-compiler
+  - make
+  - r-base=4.4.3
+  - r-jsonlite=1.9.1
+  - r-matrix=1.7-6
+  - r-rcpp=1.1.2
+  - r-foreach
+  - r-doparallel
+  - r-vegan
+  - r-ggplot2
+  - r-matrixstats
+  - r-ape
+  - r-statmod
+  - r-rmutil
+  - r-dirmult
+  - r-mass
+  - r-ggrepel
+  - r-modeest
+  - r-inline

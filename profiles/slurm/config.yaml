@@ -1,0 +1,17 @@
+# Requires snakemake-executor-plugin-slurm; supply account/partition locally.
+executor: slurm
+jobs: 10
+use-conda: true
+conda-prefix: cache/conda
+rerun-incomplete: true
+printshellcmds: true
+latency-wait: 60
+resources:
+  disk_mb: 80000
+  io_jobs: 2
+set-resource-scopes:
+  disk_mb: global
+  io_jobs: global
+default-resources:
+  mem_mb: 2048
+  runtime: 120
