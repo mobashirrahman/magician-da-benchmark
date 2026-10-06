@@ -1,5 +1,12 @@
 # MAGICIAN: differential abundance benchmarks on MAGs
 
+**Current experiment:** two earlier Tier 1 runs (original and `tier1-v2`) were stopped
+after generator and scoring defects were confirmed, and their outputs were deleted.
+The operative `tier1-v3` protocol, validation and rerun procedure are recorded in
+[docs/corrected_tier1.md](docs/corrected_tier1.md).
+The pilot numbers below are historical exploratory results from the original
+implementation; they should not be used to establish method reliability.
+
 MAGICIAN tests whether differential abundance (DA) methods stay trustworthy when the
 feature table comes from **metagenome-assembled genomes (MAGs)** instead of a clean
 taxon table. It simulates communities with a known design, rebuilds a MAG catalogue,

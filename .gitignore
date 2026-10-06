@@ -37,3 +37,6 @@ second_challenge_evaluation
 # Local run outputs and archives (not versioned)
 /results_*/
 /archive/
+
+# Run configs written by tools/paper_tier1.py; each bundle keeps a copy in its code snapshot.
+/config/paper_tier1_v3*.yaml

@@ -122,9 +122,15 @@ def import_case(cfg, case, output):
         out / "design" / case / "expectations.tsv", sep="\t", index=False, na_rep="NA")
     table(source / "matching.tsv").to_csv(out / "catalogues" / case / "matching.tsv",
                                           sep="\t", index=False, na_rep="NA")
+    metadata = source / "generator.json"
+    from .io import read_json
+    generator = read_json(metadata) if metadata.exists() else {}
     write_json(out / "design" / case / "design.json",
                dict(case=case, scenario=case_info(case)[0], seed=case_info(case)[1],
-                    input_mode="matrix", bundle=str(source), config=cfg))
+                    input_mode="matrix", bundle=str(source), config=cfg,
+                    generator=generator.get("generator"),
+                    generator_version=generator.get("generator_version"),
+                    cell=generator.get("cell", {})))
 
 
 def import_manifest(cfg, output):

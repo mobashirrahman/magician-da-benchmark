@@ -1,4 +1,19 @@
-"""Shared MAG catalogue and explicit alignment-based source assignments."""
+"""Shared MAG catalogue and explicit alignment-based source assignments.
+
+Binner is selected by ``binning.method`` (metabat2 | semibin2 | comebin).
+MetaBAT2 is the frozen default path. SemiBin2/COMEBin are ablation overlays:
+they reuse this interface and are scheduled only when their tool is on PATH
+in the frozen env; otherwise the job fails with a recorded unavailable status
+rather than silently substituting another binner.
+
+Completeness/contamination filter (``binning.completeness_filter``):
+none | medium (>=50/<10) | strict (>=90/<5). Until CheckM is wired into the
+frozen bio env, source_completeness (recovered fraction of the assigned
+source) is the completeness proxy and ambiguous/low-coverage bins are the
+contamination proxy: medium drops ambiguous + completeness<0.50 bins, strict
+drops ambiguous + completeness<0.90 bins. Thresholds are recorded in
+catalogue.json so the ablation is auditable.
+"""
 from pathlib import Path
 from collections import defaultdict
 import tempfile
@@ -7,12 +22,12 @@ import pandas as pd
 from .io import fasta, write_fasta, table, save_table, write_json
 from .execution import run, version
 
+BINNERS = ("metabat2", "semibin2", "comebin")
+COMPLETENESS_FILTERS = ("none", "medium", "strict")
 
-def bin_catalogue(cfg, contigs, depth, output, scratch, threads, seed):
-    out = Path(output)
-    out.mkdir(parents=True, exist_ok=True)
-    rows, assignments = [], []
-    records = []
+
+def _bin_with_metabat2(cfg, contigs, depth, out, scratch, threads, seed):
+    rows, assignments, records = [], [], []
     if any(True for _ in fasta(contigs)):
         print(version(["metabat2", "--help"]))
         with tempfile.TemporaryDirectory(dir=scratch, prefix="binning_") as tmp:
@@ -33,10 +48,48 @@ def bin_catalogue(cfg, contigs, depth, output, scratch, threads, seed):
                     write_fasta(normalized, out / f"{mag}.fa")
                     records.extend(normalized)
                     rows.append(dict(feature_id=mag, length_bp=total, n_contigs=len(normalized)))
+    return rows, assignments, records
+
+
+def bin_catalogue(cfg, contigs, depth, output, scratch, threads, seed):
+    out = Path(output)
+    out.mkdir(parents=True, exist_ok=True)
+    method = cfg.get("binning", {}).get("method", "metabat2")
+    if method not in BINNERS:
+        raise ValueError(f"binning.method must be one of {BINNERS}")
+    if method != "metabat2":
+        # Ablation binners share the interface; they must be installed in the
+        # frozen env. No silent fallback to MetaBAT2.
+        raise ValueError(
+            f"Binner {method} is declared but not installed in this build: "
+            f"provide a frozen env with {method} on PATH (see config/paper_tier2_ablation.yaml)")
+    rows, assignments, records = _bin_with_metabat2(cfg, contigs, depth, out, scratch, threads, seed)
     write_fasta(records, out / "combined.fa")
     save_table(pd.DataFrame(rows, columns=["feature_id", "length_bp", "n_contigs"]), out / "mags.tsv")
     save_table(pd.DataFrame(assignments, columns=["contig_id", "feature_id", "length_bp"]), out / "assignments.tsv")
-    write_json(out / "catalogue.json", {"n_mags": len(rows), "status": "recovered" if rows else "no_mags"})
+    write_json(out / "catalogue.json", {"n_mags": len(rows), "status": "recovered" if rows else "no_mags",
+                                        "binner": method})
+
+
+def apply_completeness_filter(cfg, mags_file, matching_file, assignments_file=None):
+    """Filter a built catalogue by the declared completeness policy.
+
+    Returns (kept_mag_ids, report dict). Caller rewrites mags/assignments/matching.
+    """
+    mode = cfg.get("binning", {}).get("completeness_filter", "none")
+    if mode not in COMPLETENESS_FILTERS:
+        raise ValueError(f"binning.completeness_filter must be one of {COMPLETENESS_FILTERS}")
+    mags = table(mags_file)
+    matching = table(matching_file)
+    if mode == "none" or not len(matching):
+        return mags.feature_id.tolist(), {"mode": mode, "n_kept": len(mags), "n_removed": 0}
+    threshold = 0.50 if mode == "medium" else 0.90
+    status_ok = matching.match_status.eq("matched")
+    complete_ok = pd.to_numeric(matching.source_completeness, errors="coerce").fillna(0) >= threshold
+    keep = matching.loc[status_ok & complete_ok, "feature_id"].tolist()
+    return keep, {"mode": mode, "threshold": threshold, "n_kept": len(keep),
+                  "n_removed": int(len(mags) - len(keep)),
+                  "proxy": "source_completeness; ambiguous/low_coverage treated as contaminated"}
 
 
 def union_length(intervals):

@@ -155,9 +155,9 @@ def install_sources(target, stem, dry_run):
     target = Path(target)
     work = target / "vendor"
     work.mkdir(parents=True, exist_ok=True)
-    wanted = ENV_SOURCES.get(stem)
-    if wanted is None:
-        raise SystemExit(f"No declared sources for environment {stem}; add it to ENV_SOURCES")
+    wanted = ENV_SOURCES.get(stem, [])
+    if stem not in ENV_SOURCES:
+        print(f"{stem}: no pinned sources declared; conda supplies every package", flush=True)
     installed, script = {}, ['options(repos = c(CRAN = "https://cloud.r-project.org"), Ncpus = 1L)']
     for package in wanted:
         if package in CRAN:
@@ -281,13 +281,21 @@ def main():
     stems = args.env or ([p.stem for p in sorted(ENV_DIR.glob("r_*.yaml"))] if args.all else [])
     if not stems:
         parser.error("pass --env or --all")
+    failed = []
     for stem in stems:
         print(f"=== {stem} ===", flush=True)
-        target = create_conda_env(stem, args.prefix, args.dry_run, args.force)
-        if args.dry_run:
-            continue
-        installed = install_sources(target, stem, args.dry_run)
-        record(target, stem, installed)
+        try:
+            target = create_conda_env(stem, args.prefix, args.dry_run, args.force)
+            if args.dry_run:
+                continue
+            installed = install_sources(target, stem, args.dry_run)
+            record(target, stem, installed)
+        except SystemExit as exc:
+            # A blocked package (e.g. LOCOM) must not kill the other environments.
+            print(f"!!! {stem} FAILED: {exc}", flush=True)
+            failed.append(stem)
+    if failed:
+        raise SystemExit(f"bootstrap failed for: {', '.join(failed)}")
 
 
 if __name__ == "__main__":

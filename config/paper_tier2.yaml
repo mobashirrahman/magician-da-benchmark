@@ -1,0 +1,68 @@
+# Paper Tier 2 base overlay: full read-level pipeline to MAGs (oracle/MAG/reference).
+# Genomes MUST come from a frozen real manifest (tools/real_genomes.py freeze),
+# not synthetic ones. Set genomes.manifest before running.
+# Abundances follow G2-style real profiles (see tools/paper_tier2.py --help).
+#
+# One cell per config: community size / strain / depth vary by cell.
+# Run the whole tier with a single command (plan.md Section 8):
+#   python tools/paper_tier2.py --plan          # list the 60 cells
+#   python tools/paper_tier2.py --run --cores 60
+output_dir: results_paper_tier2_cell00
+genomes:
+  manifest: null                   # REQUIRED: frozen real manifest (accession/version/path/provenance)
+experiment:
+  scenarios: ["null", "spiked"]
+  seeds: [101, 102, 103, 104, 105]
+  samples_per_group: 20            # 40 samples per experiment
+  read_pairs: 2000000              # 2M; 10M cells override to 10000000
+  library_cv: 0.15
+  biological_cv: 0.20
+  differential_fraction: 0.20      # 20% DA, balanced
+  effect_size: 4.0
+  load_information: false
+  load_cv: 0.30
+simulation:
+  read_length: 150
+  insert_size: 350
+  insert_sd: 30
+  error_rate: 0.001
+assembly:
+  min_contig_length: 1500
+  k_list: [21, 41, 61, 81, 99]
+  mode: co
+binning:
+  min_bin_size: 200000
+  min_contig_length: 1500
+  method: metabat2
+  completeness_filter: none
+reference_table:
+  enabled: true
+  fraction_present: 0.70
+  seed: 7
+analysis:
+  method_registry: config/methods.yaml
+  methods: [wilcoxon_clr, deseq2, edger, limma_voom, aldex2, aldex2_g0, ancombc2, maaslin2,
+            maaslin3_abundance, maaslin3_corrected, aldex3, aldex3_g0, adapt, rademu,
+            linda, zicoseq, ttest_relative, wilcoxon_relative, random_score]
+  metrics: [counts, tpm, rpkm, relative]
+  alpha: 0.05
+  min_total_count: 10
+  min_prevalence: 0.10
+  mc_samples: 128
+  allow_method_failures: true
+  da_timeout_minutes: 240
+  enable_status: [active]
+  truth_reference: median_feature
+  truth_reference_feature: null
+  zero_handling_policies: config/zero_handling.yaml
+  reserve_other: false
+storage:
+  budget_gb: 500
+  environment_reserve_gb: 15
+  headroom_gb: 2
+resources:
+  threads: 16
+  assembly_mem_mb: 16000
+  mapping_mem_mb: 4000
+  binning_mem_mb: 4000
+  da_mem_mb: 4000

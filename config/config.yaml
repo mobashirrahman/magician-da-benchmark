@@ -28,9 +28,16 @@ simulation:
 assembly:
   min_contig_length: 1500
   k_list: [21, 41, 61, 81, 99]
+  mode: co                       # co | single; co = one co-assembly per experiment
 binning:
   min_bin_size: 200000
   min_contig_length: 1500
+  method: metabat2               # metabat2 | semibin2 | comebin (ablation overlay)
+  completeness_filter: none      # none | medium (>=50/<10) | strict (>=90/<5)
+reference_table:
+  enabled: false                 # Tier 2 third table: incomplete reference (70% present)
+  fraction_present: 0.70
+  seed: 7
 mapping:
   min_mapq: 20
 matching:

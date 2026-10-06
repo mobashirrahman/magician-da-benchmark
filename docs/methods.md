@@ -9,10 +9,19 @@ remainders. wgsim adds substitution errors and no source mutations. Its simplifi
 uniform error model does not reproduce every platform. Default artificial genomes
 test software.
 
-Spiking redistributes abundance within the DA subset while conserving its total mass.
+The original read-level generator redistributes abundance within the DA subset while conserving its total mass.
 Non-DA genomes retain their expected relative abundance. Truth records the actual
 final log2 fold change after adjustment. Finite-sample means differ from expectations.
 Samples are independent biological draws, not duplicated technical replicates.
+
+Corrected Tier 1 uses the versioned protocol in [corrected_tier1.md](corrected_tier1.md).
+Balanced implants conserve the changed subset's mass. One-directional implants
+instead close the whole community, so unselected features also change on the
+relative-abundance scale. Null and spiked cases share a noise mechanism; Tier 1
+uses equal feature lengths, multinomial library accounting, and excludes unsupported
+batch confounding. G2 resamples measured species profiles; G1 and G3 are synthetic
+models calibrated on the same donor table. Tier 1 discoveries are scored against the
+implanted set, with each method's endpoint lane reported beside it.
 
 ## Endpoints and truth lanes
 
@@ -30,11 +39,16 @@ including genome lengths and the declared denominator, in
 | `reference_relative_change` | `reference_relative` | log2 change against the reference | median feature, learned set, or a declared feature |
 | `absolute_abundance` | `absolute_abundance` | log2 copies | expected genome copies per sample |
 
-Labels (`is_da`) always come from the design's **target** composition, never from the
+Labels (`is_da`) come from the design's **target** in the endpoint's coordinates, never from the
 noisy per-sample draws around it: under the null the targets are identical and every
 measured difference is finite-sample variation. Effect sizes come from the
 **expectation of the measured statistic**, which accounts for sample-level closure,
 library variation and the finite counts actually drawn.
+
+CLR labels include changes caused by a shifted geometric reference; read-fraction
+truth includes its total-DNA denominator. Tier 1 source recall uses the matching
+endpoint's positive sources. Null p-value calibration uses raw p-values, while
+the rate of any adjusted discovery is reported separately.
 
 The absolute abundance lane is only available when load information exists
 (`experiment.load_information`). Otherwise it is emitted and reported as unavailable

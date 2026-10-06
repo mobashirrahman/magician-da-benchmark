@@ -1,0 +1,24 @@
+# Smoke Tier 1 overlay: 12-case G1/G2/G3 bundle for pipeline validation.
+# Built by: python tools/paper_tier1.py --smoke --bundle cache/paper_tier1_smoke16 --generate-only
+# Run with: python run_magician.py --configfile config/paper_tier1_smoke.yaml --cores 16
+output_dir: results_paper_tier1_smoke16
+input_mode: matrix
+matrix_input:
+  bundle: cache/paper_tier1_smoke16
+analysis:
+  method_registry: config/methods.yaml
+  methods: [wilcoxon_clr, deseq2, edger, limma_voom, aldex2, aldex2_g0, ancombc2, maaslin2,
+            maaslin3_abundance, maaslin3_corrected, aldex3, aldex3_g0, adapt, rademu,
+            linda, zicoseq, ttest_relative, wilcoxon_relative, random_score]
+  metrics: [counts, relative]
+  min_total_count: 10
+  min_prevalence: 0.10
+  enable_status: [active]
+  truth_reference: median_feature
+experiment:
+  seeds: [42]
+  samples_per_group: 3
+storage:
+  budget_gb: 100
+resources:
+  threads: 4

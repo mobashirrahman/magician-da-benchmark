@@ -187,7 +187,9 @@ methods:
     contrast: Treatment / Control
     adjustment_family: BH
     native_q: false
-    parameters: {normalization: TMM, fit: quasi_likelihood}
+    # legacy: the estimateDisp + quasi-likelihood pipeline of the cited papers. With supplied
+    # dispersions the edgeR 4.4.0 default fit (legacy = FALSE) aborts R on sparse counts.
+    parameters: {normalization: TMM, fit: quasi_likelihood, legacy: true}
     thread_cap: 1
     seed: false
     citation: "Robinson and Oshlack (2010) edgeR; McCarthy and Chen (2014) quasi-likelihood F-test"
@@ -523,3 +525,72 @@ methods:
     seed: true
     citation: "Mysara et al. (2025) metaGEENOME, BMC Bioinformatics"
     status: deferred
+
+  - id: ttest_relative
+    method_family: naive_ttest
+    variant: default
+    adapter: ttest_relative
+    environment: r_core
+    package: null
+    package_version: null
+    accepted_inputs: [relative]
+    transform: none
+    zero_policy: none
+    endpoint: relative_abundance
+    hypothesis: the two groups differ in mean relative abundance (naive baseline)
+    effect_scale: log2_relative_abundance
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {}
+    thread_cap: 1
+    seed: false
+    citation: "Naive baseline: Student t-test on relative abundance"
+    status: active
+
+  - id: wilcoxon_relative
+    method_family: naive_wilcoxon
+    variant: default
+    adapter: wilcoxon_relative
+    environment: r_core
+    package: null
+    package_version: null
+    accepted_inputs: [relative]
+    transform: none
+    zero_policy: none
+    endpoint: relative_abundance
+    hypothesis: the two groups differ in relative abundance (naive rank baseline)
+    effect_scale: log2_relative_abundance
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {}
+    thread_cap: 1
+    seed: false
+    citation: "Naive baseline: Wilcoxon on relative abundance"
+    status: active
+
+  - id: random_score
+    method_family: random_ranker
+    variant: default
+    adapter: random_score
+    environment: r_core
+    package: null
+    package_version: null
+    accepted_inputs: [counts]
+    transform: none
+    zero_policy: none
+    endpoint: relative_abundance
+    hypothesis: random ranking baseline; any method must beat chance
+    effect_scale: log2_relative_abundance
+    reference: library_normalised
+    contrast: Treatment / Control
+    adjustment_family: BH
+    native_q: false
+    parameters: {}
+    thread_cap: 1
+    seed: true
+    citation: "Naive baseline: uniform random scores"
+    status: active

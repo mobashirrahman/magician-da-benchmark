@@ -1,0 +1,28 @@
+# Paper Tier 1 overlay: matrix-only grid (G1/G2/G3 factorial).
+# Single command per tier (plan.md Section 8):
+#   python tools/paper_tier1.py --full --cores 16
+# tools/paper_tier1.py builds a versioned bundle and writes the run config from
+# this template; do not run this file directly.
+output_dir: results_paper_tier1
+input_mode: matrix
+matrix_input:
+  bundle: cache/paper_tier1
+analysis:
+  method_registry: config/methods.yaml
+  methods: [wilcoxon_clr, deseq2, edger, limma_voom, aldex2, aldex2_g0, ancombc2, maaslin2,
+            maaslin3_abundance, maaslin3_corrected, aldex3, aldex3_g0, adapt, rademu,
+            linda, zicoseq, ttest_relative, wilcoxon_relative, random_score]
+  metrics: [counts, relative]
+  min_total_count: 10
+  min_prevalence: 0.10
+  enable_status: [active]
+  truth_reference: median_feature
+experiment:
+  seeds: [42]
+  samples_per_group: 3
+storage:
+  budget_gb: 100
+resources:
+  threads: 4
+  # Scheduling reservation only. Measured DA jobs stay below 1 GB on these matrices.
+  da_mem_mb: 1000

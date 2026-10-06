@@ -1,6 +1,19 @@
 # Experiment plan: a publishable benchmark of differential abundance on MAGs
 
-Status: draft for review, written 2026-10-04. Nothing below has been run.
+Protocol correction, 2026-10-06: Tier 1 runs as `tier1-v3`. The original run and
+`tier1-v2` were stopped and deleted after audits of the implants, truth labels,
+the G2 donor table and sparsity. See [docs/corrected_tier1.md](docs/corrected_tier1.md)
+for the operative design: 24 spiked core cells on 6 shared null conditions plus a
+one-factor-at-a-time survey; batch confounding excluded. That document overrides
+Sections 2 and 4 below where they differ: discoveries are scored against the
+implanted design truth, G2 resamples measured profiles from one healthy cohort,
+and the null criterion is a rejection rate of at most 0.07. The original sections
+are retained as the broader research plan, not a record that all analyses are
+implemented.
+
+Status: tooling implemented 2026-10-04 (reduced scope Tier 1+2+3a first);
+full compute not yet run. Resolved: reduced scope first, Phase 0 auto-picks
+IBD/CRC cohorts, keep strain axis + second binner.
 Compute cap: **60 cores** (the server has 128; leave the rest for other users).
 
 ## 1. Why this is publishable

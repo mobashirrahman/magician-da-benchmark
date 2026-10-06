@@ -1,0 +1,17 @@
+{
+  "level": "species",
+  "licence": "curatedMetagenomicData is distributed under Artistic-2.0; cite Asnicar et al. 2021 and Pasolli et al. 2017 when using these profiles",
+  "metadata_sha256": "168c8650d2893dcb49930b9b85a4187637775c9aae0a8023efb4cca52dc73444",
+  "metadata_url": "https://github.com/waldronlab/curatedMetagenomicData/raw/f88ac2ee84df7094d04cbf225a9d4679fc4b8986/data/sampleMetadata.rda",
+  "n_features": 636,
+  "n_samples": 999,
+  "profile_sha256": "89c635061b357583351ca33f520a72d0efced4a2963e73182e529228c8395c54",
+  "profile_url": "https://mghp.osn.xsede.org/bir190004-bucket01/ExperimentHub/curatedMetagenomicData/2021-03-31/AsnicarF_2021/2021-03-31.AsnicarF_2021.relative_abundance.rda",
+  "profiler": "MetaPhlAn 3 (curatedMetagenomicData 2021-03-31)",
+  "resource": "ExperimentHub EH5458",
+  "sample_filter": "study_name == \"AsnicarF_2021\" & body_site == \"stool\" & study_condition == \"control\" & age_category == \"adult\" & country == \"GBR\" & (is.na(antibiotics_current_use) | antibiotics_current_use == \"no\")",
+  "study": "AsnicarF_2021",
+  "table": "asnicar_2021_species.tsv.gz",
+  "table_sha256": "f70080009dc39da8858749e170083a7a9f4dd0bf05c70a78e0d64d79d29cb267",
+  "unit": "relative abundance in percent of the profiled community; zeros as measured"
+}

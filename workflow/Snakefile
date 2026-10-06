@@ -24,13 +24,14 @@ REGISTRY = str(REG.path)
 ADAPTER_DIR = REG.adapter_dir
 POLICY_FILE = str((REPO / CFG["analysis"]["zero_handling_policies"]).resolve())
 MATRIX_MODE = CFG["input_mode"] == "matrix"
+REF_TABLE = bool(CFG.get("reference_table", {}).get("enabled", False))
 if MATRIX_MODE:
     CASES = matrix.cases(CFG)
     KINDS = ["sources"]
     SAMPLES = []
 else:
     CASES = cases(CFG)
-    KINDS = ["sources", "mags"]
+    KINDS = ["sources", "mags"] + (["reference"] if REF_TABLE else [])
     SAMPLES = samples(CFG)
 COMBINATIONS = combinations(CFG)
 REF = f"{OUT}/work/references"
@@ -44,7 +45,7 @@ include: "rules/common.smk"
 wildcard_constraints:
     case="(?:null|spiked)_s[0-9]+",
     sample="[CT][0-9]+",
-    kind="sources|mags",
+    kind="sources|mags|reference",
     metric="counts|tpm|rpkm|relative",
     method="[a-z0-9_]+"
 
@@ -63,5 +64,7 @@ if MATRIX_MODE:
 else:
     include: "rules/setup.smk"
     include: "rules/genomes.smk"
+    if REF_TABLE:
+        include: "rules/reference.smk"
 include: "rules/analysis.smk"
 include: "rules/report.smk"

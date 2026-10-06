@@ -5,7 +5,7 @@ adapter_edger <- function(entry, y, meta, opts) {
     data <- edgeR::calcNormFactors(data, method = entry$parameters$normalization %||% "TMM")
     design <- stats::model.matrix(~group, meta)
     data <- edgeR::estimateDisp(data, design)
-    fit <- edgeR::glmQLFit(data, design)
+    fit <- edgeR::glmQLFit(data, design, legacy = isTRUE(entry$parameters$legacy))
     table <- edgeR::glmQLFTest(fit, coef = 2)$table
     list(log2fc = table$logFC, pvalue = table$PValue, qvalue = NULL)
 }

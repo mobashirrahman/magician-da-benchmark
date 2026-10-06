@@ -1,0 +1,18 @@
+{
+  "platform": "Linux-6.14.0-37-generic-x86_64-with-glibc2.39",
+  "cores": 16,
+  "python": "3.12.3",
+  "snakemake": "unavailable: [Errno 2] No such file or directory: 'snakemake'",
+  "R": "Rscript (R) version 4.3.3 (2024-02-29)",
+  "disk_total_gb": 1967.845998592,
+  "disk_free_gb": 1316.06075392,
+  "rescaled_wall_hours": {
+    "tier1": 131.2,
+    "tier2": 270.0,
+    "tier3a": 52.5,
+    "tier3b": 37.5,
+    "tier4": 90.0,
+    "slack": 180.0
+  },
+  "note": "Reference is 60 cores; this machine has 16 cores (x3.8). Tier 2 needs >=5TB scratch; disk binding."
+}

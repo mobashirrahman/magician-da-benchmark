@@ -114,7 +114,7 @@ def target_labels(expected, treated, ids):
     genomic = np.log2(case_group / control)
     dna_control = control * expected.groupby("feature_id").length_bp.first().reindex(ids)
     dna_treated = case_group * expected.groupby("feature_id").length_bp.first().reindex(ids)
-    read_fraction = np.log2(dna_treated / dna_control)
+    read_fraction = np.log2((dna_treated / dna_treated.sum()) / (dna_control / dna_control.sum()))
     return (genomic.abs() > TOLERANCE), (read_fraction.abs() > TOLERANCE), genomic
 
 
@@ -159,6 +159,7 @@ def lanes(cfg, case, kind, expected, samples, lengths, retained, reference="medi
 
     # Lane 2: expected read fraction. The raw count scale is DNA fraction.
     dna = wide * expected.groupby("feature_id").length_bp.first().reindex(ids)
+    dna = dna.div(dna.sum(axis=1), axis=0)
     read_effect = np.log2(dna[treated].mean(axis=0) / dna[~treated].mean(axis=0))
     frames.append(_lane(ids, "expected_read_fraction", "read_fraction",
                         read_effect.reindex(ids).to_numpy(), np.ones(len(ids), bool),
@@ -204,9 +205,14 @@ def lanes(cfg, case, kind, expected, samples, lengths, retained, reference="medi
     copies = copies.reindex(index=wide.index, columns=ids)
     if copies.notna().all().all() and (copies.sum(axis=1) > 0).all():
         absolute = np.log2(copies[treated].mean(axis=0) / copies[~treated].mean(axis=0))
+        absolute_labels = da_genomic.to_numpy()
+        if "target_absolute_copies" in expected:
+            target_copies = expected.pivot(index="sample_id", columns="feature_id",
+                                          values="target_absolute_copies").reindex(index=wide.index, columns=ids)
+            absolute_labels = (np.log2(target_copies[treated].mean() / target_copies[~treated].mean()).abs() > TOLERANCE).to_numpy()
         frames.append(_lane(ids, "absolute_abundance", "absolute_abundance",
                             absolute.reindex(ids).to_numpy(), np.ones(len(ids), bool),
-                            labels=da_genomic.to_numpy(),
+                            labels=absolute_labels,
                             effect_scale="log2_absolute_abundance", reference="total_genome_copies",
                             denominator="expected genome copies per sample",
                             input_metric="any", zero_policy="none", reserve_other=False))
@@ -247,9 +253,25 @@ def clr_lane(cfg, case, kind, expected, samples, lengths, retained, input_metric
         values["other"] = (totals - tested_total).reindex(values.index).fillna(0)
     transformed = centre_log_ratio(apply_zero_policy(values, library.reindex(values.index), zero_policy))
     effect = (transformed[treated].mean(axis=0) - transformed[~treated].mean(axis=0)).reindex(ids)
-    da_genomic, _, _ = target_labels(expected, treated, ids)
+    # Labels use the target statistic in the same CLR coordinates as the method.
+    # One shared library size avoids creating null labels from finite library noise.
+    target = expected.copy()
+    target["genomic_proportion"] = target.target_proportion
+    target["read_proportion"] = target.target_proportion * target.length_bp
+    target["read_proportion"] /= target.groupby("sample_id").read_proportion.transform("sum")
+    reference_library = float(library.median())
+    target["library_read_pairs"] = reference_library
+    target["expected_count"] = target.read_proportion * reference_library
+    target_series = metric_matrix(target, input_metric)
+    target_series.index = pd.MultiIndex.from_arrays([target.sample_id, target.feature_id])
+    target_values = target_series.unstack().reindex(index=wide.index, columns=columns)
+    if reserve_other:
+        target_values["other"] = target.loc[~target.feature_id.isin(tested_ids)].groupby("sample_id").expected_count.sum().reindex(wide.index).fillna(0)
+    target_clr = centre_log_ratio(apply_zero_policy(target_values,
+                                 pd.Series(reference_library, index=wide.index), zero_policy))
+    target_effect = (target_clr[treated].mean() - target_clr[~treated].mean()).reindex(ids)
     frame = _lane(ids, "clr_log_ratio", "clr", effect.to_numpy(), keep.to_numpy(),
-                  labels=da_genomic.to_numpy(),
+                  labels=(target_effect.abs() > TOLERANCE).to_numpy(),
                   effect_scale="log2_clr", reference="geometric_mean_of_tested_features",
                   denominator=("geometric mean of log2 values over the tested features per sample"
                                + (", including the reserved other category" if reserve_other else "")),

@@ -1,0 +1,27 @@
+datasets:
+  healthy_default:
+    disease: healthy
+    cohorts:
+    - one study, one body site, >=100 samples (TBD)
+    url: TBD in Phase 0
+    licence: TBD
+    checksum: TBD
+    note: Tier 3a real nulls + 3b implants; subsampled to common depth.
+  ibd_default:
+    disease: IBD
+    cohorts:
+    - IBDMDB/HMP2
+    - independent IBD cohort (TBD)
+    url: TBD in Phase 0
+    licence: TBD
+    checksum: TBD
+    note: Cross-cohort replication; no ground truth (Tier 4).
+  crc_default:
+    disease: CRC
+    cohorts:
+    - 3+ public CRC cohorts (TBD)
+    url: TBD in Phase 0
+    licence: TBD
+    checksum: TBD
+    note: Cross-cohort replication; no ground truth (Tier 4).
+warning: Accessions unverified; Phase 0 must fill URL/licence/checksum/read counts.

@@ -1,9 +1,10 @@
 rule quantify_features:
     input:
-        counts=lambda wc: expand(f"{OUT}/work/{{case}}/counts/{{sample}}.{'sources' if wc.kind == 'sources' else 'contigs'}.tsv", case=wc.case, sample=SAMPLES),
+        counts=lambda wc: expand(f"{OUT}/work/{{case}}/counts/{{sample}}.{'sources' if wc.kind == 'sources' else ('reference' if wc.kind == 'reference' else 'contigs')}.tsv", case=wc.case, sample=SAMPLES),
         samples=f"{OUT}/design/{{case}}/samples.tsv",
-        features=lambda wc: f"{OUT}/provenance/references.tsv" if wc.kind == "sources" else f"{OUT}/catalogues/{wc.case}/mags.tsv",
-        assignments=lambda wc: [f"{OUT}/catalogues/{wc.case}/assignments.tsv"] if wc.kind == "mags" else []
+        features=lambda wc: f"{OUT}/provenance/references.tsv" if wc.kind == "sources" else (f"{OUT}/catalogues/{wc.case}/reference.tsv" if wc.kind == "reference" else f"{OUT}/catalogues/{wc.case}/mags.tsv"),
+        assignments=lambda wc: [f"{OUT}/catalogues/{wc.case}/assignments.tsv"] if wc.kind == "mags" else [],
+        ref_genomes=lambda wc: [f"{OUT}/provenance/reference_genomes.tsv"] if wc.kind == "reference" else []
     output:
         raw=directory(f"{OUT}/matrices/{{case}}/raw_{{kind}}")
     params:
@@ -116,6 +117,7 @@ rule evaluate_case:
         truth=f"{OUT}/design/{{case}}/truth.tsv",
         lanes=f"{OUT}/truth/{{case}}/lanes.tsv",
         matching=f"{OUT}/catalogues/{{case}}/matching.tsv",
+        ref_matching=lambda wc: [f"{OUT}/catalogues/{wc.case}/reference_matching.tsv"] if REF_TABLE else [],
         results=lambda wc: [f"{OUT}/da/{wc.case}/{kind}/{metric}/{method}.tsv" for kind in KINDS for metric, method in COMBINATIONS],
         statuses=lambda wc: [f"{OUT}/da/{wc.case}/{kind}/{metric}/{method}.status.json" for kind in KINDS for metric, method in COMBINATIONS]
     output:

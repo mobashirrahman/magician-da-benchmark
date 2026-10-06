@@ -34,7 +34,7 @@ def make_report(cfg, summary, benchmarks, output, usage_output):
     save_table(resources, root / "rule_resources.tsv")
     # Measured cost per method, from the job benchmark rather than the R timer.
     measured = []
-    for _, row in ranking.iterrows():
+    for _, row in ranking.drop_duplicates(["kind", "metric", "endpoint", "method"]).iterrows():
         pattern = f"da/{row.kind}/{row.metric}/{row.method}.tsv"
         jobs = resources.loc[resources.job.str.endswith(pattern)] if len(resources) else resources
         measured.append(dict(kind=row.kind, metric=row.metric, endpoint=row.endpoint,
@@ -69,7 +69,7 @@ def make_report(cfg, summary, benchmarks, output, usage_output):
             subset = spike.loc[(spike.kind == kind) & (spike.metric == metric) & (spike.endpoint == endpoint)]
             methods = list(dict.fromkeys(subset.method))
             for ax, statistic, label in zip(row, ["fdr", "source_recall"],
-                                            ["Empirical false discovery proportion", "Recall across all true DA sources"]):
+                                            ["False discovery proportion against the design truth", "Recall of the design truth"]):
                 if len(subset):
                     means = subset.groupby("method")[statistic].mean().reindex(methods)
                     ax.scatter(range(len(methods)), means.values, marker="o")
@@ -83,11 +83,24 @@ def make_report(cfg, summary, benchmarks, output, usage_output):
         fig.savefig(root / "performance.png", dpi=160)
         plt.close(fig)
     recs = read_json(root / "recommendations.json")
+    from .evaluation import CONDITION_COLUMNS
+    condition_text = lambda r: "; ".join(f"{c}={r[c]}" for c in CONDITION_COLUMNS if c in r)
     conclusions = "".join(
         f"<li>{html.escape(r['kind'])}/{html.escape(r['metric'])}/"
         f"{html.escape(r['endpoint'])}: "
         f"{html.escape(r['best_method'] or ', '.join(r.get('candidate_methods', [])) or 'no eligible method')} "
-        f"— {html.escape(r['conclusion'])} ({r['evidence']})</li>" for r in recs)
+        f"— {html.escape(r['conclusion'])} ({r['evidence']}) "
+        f"{html.escape(condition_text(r))}</li>" for r in recs)
+    corrected = "generator_version" in ranking.columns
+    eligibility = (
+        "Corrected Tier 1 candidates are assessed separately by condition. The upper FDR confidence bound "
+        "must be ≤0.10, raw null p-value rejection rate must be ≤0.07 (below 0.03 is flagged conservative), "
+        "and failure rate must be &lt;5%. Recall must be positive and significant unevaluable features absent. "
+        "Recommendations also require at least 100 null and 50 spiked runs per condition; null runs are shared "
+        "by spiked conditions that differ only in effect factors. Thin cells remain exploratory."
+        if corrected else
+        "Eligibility requires successful evaluable runs, positive source recall, mean spiked FDR ≤α, "
+        "null probability of any false discovery ≤α, and no significant unassigned MAGs.")
     lane_note = "".join(
         f"<li><b>{html.escape(name)}</b>: truth lane <code>{html.escape(lane['lane'])}</code> — "
         f"{html.escape(lane['description'])}</li>"
@@ -96,19 +109,23 @@ def make_report(cfg, summary, benchmarks, output, usage_output):
     body = f"""<!doctype html><html lang="en"><meta charset="utf-8"><title>MAGICIAN benchmark</title>
     <style>body{{font:15px system-ui;max-width:1500px;margin:30px auto;padding:0 20px}}table{{border-collapse:collapse;width:100%;font-size:12px}}th,td{{padding:6px;border:1px solid #ddd}}img{{max-width:100%}}section{{overflow-x:auto}}</style>
     <h1>MAGICIAN differential abundance benchmark</h1>
-    <p>Contrast: Treatment / Control. Source genomes and MAGs are quantified separately. Each method is
-    scored against the truth lane for the endpoint it declares, so a method is never marked wrong for
-    finding a real association on a different measurement scale.</p>
-    <p>Rankings are specific to these simulations. Artificial fixtures and fewer than five independent seeds
-    are smoke tests. Failed methods and unevaluable MAGs cannot qualify as winners.</p>
+    <p>Contrast: Treatment / Control. Source genomes and MAGs are quantified separately. Discoveries are
+    scored against the design truth, the features the design changed, which is the same set for every
+    method. The truth lane for each method's declared endpoint is scored beside it: <code>endpoint_fdr</code>
+    is unavailable where that scale has no null feature, and <code>spillover_share</code> is the share of
+    discoveries that are real shifts on the method's own scale but lie outside the design truth.</p>
+    <p>Rankings are specific to these simulations and recorded conditions. Small validation runs establish
+    pipeline execution, not statistical reliability. Tier 1 does not test MAG reconstruction or real-data validity.</p>
     <h2>Endpoints and truth lanes</h2><ul>{lane_note}</ul>
     <h2>Candidates</h2><ul>{conclusions}</ul>
-    <p>Eligibility requires successful evaluable runs, positive source recall, mean spiked FDR ≤ α, null
-    probability of any false discovery ≤ α, and no significant unassigned MAGs. Ordering uses source recall,
-    then average precision over adjusted values and FDR. Variants of one method family are reported as one
+    <p>{eligibility} Ordering uses source recall,
+    then average precision and FDR. Corrected Tier 1 uses raw p-value average precision;
+    unavailable raw rankings are retained as unavailable. Variants of one method family are reported as one
     candidate. Bootstrap intervals resample whole independent seeds; the null rate also carries an exact
     binomial interval.</p>
     <h2>Performance by endpoint and input</h2><img src="performance.svg" alt="FDR and source recall by method">
+    <p>The overview plots average across design conditions. Use the condition-specific table and candidate
+    records for interpretation; pooled plot averages are descriptive.</p>
     <section>{ranking.to_html(index=False, escape=True)}</section>
     <h2>Declared method settings</h2><section>{settings_table}</section>
     <h2>Measured resources by method</h2><section>{cost.to_html(index=False, escape=True)}</section>

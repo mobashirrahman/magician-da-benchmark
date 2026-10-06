@@ -36,6 +36,8 @@ def all_benchmarks():
         files.append(f"{OUT}/benchmarks/import_matrix.tsv")
     else:
         files += [f"{OUT}/benchmarks/prepare_references.tsv", f"{OUT}/benchmarks/preflight.tsv"]
+        if REF_TABLE:
+            files.append(f"{OUT}/benchmarks/select_reference.tsv")
     for case in CASES:
         files += [f"{OUT}/benchmarks/design/{case}.tsv", f"{OUT}/benchmarks/{case}/evaluate.tsv"]
         if not MATRIX_MODE:
@@ -43,6 +45,9 @@ def all_benchmarks():
                       for rule in ["assemble", "contig_depth", "bin_catalogue", "align_mags", "match_mags"]]
             files += [f"{OUT}/benchmarks/{case}/{rule}/{sample}.tsv"
                       for rule in ["simulate", "map_contigs", "map_sources"] for sample in SAMPLES]
+            if REF_TABLE:
+                files += [f"{OUT}/benchmarks/{case}/reference_counts/{sample}.tsv" for sample in SAMPLES]
+                files.append(f"{OUT}/benchmarks/{case}/reference_catalogue.tsv")
             files += [f"{OUT}/benchmarks/{case}/quantify/{kind}.tsv" for kind in KINDS]
         files += [f"{OUT}/benchmarks/{case}/derive/{kind}.tsv" for kind in KINDS]
         files += [f"{OUT}/benchmarks/{case}/truth/{kind}.tsv" for kind in KINDS]

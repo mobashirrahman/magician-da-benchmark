@@ -113,6 +113,19 @@ def validate_simulation(cfg):
         raise ValueError("k_list must contain increasing, unique, odd integers >=15")
     if max(k) >= cfg["simulation"]["read_length"]:
         raise ValueError("Assembly k-mers must be shorter than reads")
+    if cfg["assembly"].get("mode", "co") not in {"co", "single"}:
+        raise ValueError("assembly.mode must be co or single")
+    if cfg["binning"].get("method", "metabat2") not in {"metabat2", "semibin2", "comebin"}:
+        raise ValueError("binning.method must be metabat2, semibin2 or comebin")
+    if cfg["binning"].get("completeness_filter", "none") not in {"none", "medium", "strict"}:
+        raise ValueError("binning.completeness_filter must be none, medium or strict")
+    ref = cfg.get("reference_table", {})
+    if not isinstance(ref.get("enabled", False), bool):
+        raise ValueError("reference_table.enabled must be a boolean")
+    if not 0 < float(ref.get("fraction_present", 0.7)) < 1:
+        raise ValueError("reference_table.fraction_present must be in (0,1)")
+    if type(ref.get("seed", 7)) is not int or ref.get("seed", 7) <= 0:
+        raise ValueError("reference_table.seed must be a positive integer")
 
 
 def zero_policies(cfg):

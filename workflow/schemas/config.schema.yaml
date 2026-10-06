@@ -1,7 +1,7 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 type: object
 additionalProperties: false
-required: [output_dir, cache_dir, input_mode, matrix_input, genomes, experiment, simulation, assembly, binning, mapping, matching, analysis, storage, resources]
+required: [output_dir, cache_dir, input_mode, matrix_input, genomes, experiment, simulation, assembly, binning, reference_table, mapping, matching, analysis, storage, resources]
 properties:
   output_dir: {type: string, minLength: 1}
   cache_dir: {type: string, minLength: 1}
@@ -47,12 +47,22 @@ properties:
     properties:
       min_contig_length: {type: integer, minimum: 1}
       k_list: {type: array, minItems: 1, uniqueItems: true, items: {type: integer, minimum: 15}}
+      mode: {enum: [co, single]}
   binning:
     type: object
     additionalProperties: false
     properties:
       min_bin_size: {type: integer, minimum: 1}
       min_contig_length: {type: integer, minimum: 1}
+      method: {enum: [metabat2, semibin2, comebin]}
+      completeness_filter: {enum: [none, medium, strict]}
+  reference_table:
+    type: object
+    additionalProperties: false
+    properties:
+      enabled: {type: boolean}
+      fraction_present: {type: number, exclusiveMinimum: 0, exclusiveMaximum: 1}
+      seed: {type: integer, minimum: 1}
   mapping:
     type: object
     additionalProperties: false

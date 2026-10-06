@@ -5,8 +5,10 @@ MATRIX_FILES = ["samples.tsv", "features.tsv", "counts.tsv", "truth.tsv",
 rule import_matrix_case:
     input:
         listing=lambda wc: [str(REPO / CFG["matrix_input"]["bundle"] / "cases.tsv")],
-        bundle=lambda wc: [str(REPO / CFG["matrix_input"]["bundle"] / wc.case / name)
-                           for name in MATRIX_FILES]
+        bundle=lambda wc: ([str(REPO / CFG["matrix_input"]["bundle"] / wc.case / name)
+                           for name in MATRIX_FILES] +
+                          ([str(REPO / CFG["matrix_input"]["bundle"] / wc.case / "generator.json")]
+                           if (REPO / CFG["matrix_input"]["bundle"] / wc.case / "generator.json").exists() else []))
     output:
         raw=directory(f"{OUT}/matrices/{{case}}/raw_sources"),
         samples=f"{OUT}/design/{{case}}/samples.tsv",
