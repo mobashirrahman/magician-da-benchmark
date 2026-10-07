@@ -8,9 +8,10 @@ input_mode: matrix
 matrix_input:
   bundle: cache/paper_tier1
 analysis:
+  # radEmu is excluded from Tier 1 for compute cost (docs/corrected_tier1.md); it stays in the registry.
   method_registry: config/methods.yaml
   methods: [wilcoxon_clr, deseq2, edger, limma_voom, aldex2, aldex2_g0, ancombc2, maaslin2,
-            maaslin3_abundance, maaslin3_corrected, aldex3, aldex3_g0, adapt, rademu,
+            maaslin3_abundance, maaslin3_corrected, aldex3, aldex3_g0, adapt,
             linda, zicoseq, ttest_relative, wilcoxon_relative, random_score]
   metrics: [counts, relative]
   min_total_count: 10

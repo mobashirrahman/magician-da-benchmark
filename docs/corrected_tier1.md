@@ -10,6 +10,20 @@ Null cases contain no positive design labels; all validation recommendations are
 marked `smoke_only`. Evidence is retained in
 `results_paper_tier1_v3_validation/provenance/validation.json`.
 
+## Amendment, 2026-10-07: radEmu excluded from Tier 1
+
+Tagged `preregistration-tier1-v3.1`. The first tier1-v3 launch was stopped after
+six hours, with 43 of 4,060 datasets evaluated. radEmu took a median of 56 minutes
+per dataset (maximum 2.4 hours) against under 4 minutes for the other 18 methods
+together: about 3,800 core-hours, more than three weeks on the one shared 16-core
+machine available. Tier 1 therefore runs **18 method configurations**, and radEmu
+is reported as "excluded from Tier 1: compute cost", not as a failure. It remains
+active in the registry. The decision used run times and completion statuses
+only; no score from the stopped launch was inspected. The input bundle
+(`cache/paper_tier1_v3`, generated at `preregistration-tier1-v3`) is unchanged;
+the partial results were deleted and the workflow restarted from the bundle.
+The validation counts below include radEmu.
+
 ## Why tier1-v2 was withdrawn
 
 The `tier1-v2` run was stopped at about 1 % and deleted. Compact records are in
@@ -113,7 +127,8 @@ python tools/paper_tier1.py --full --cores 16
 Destinations are versioned and must be empty. The full command generates
 `cache/paper_tier1_v3`, runs the workflow into `results_paper_tier1_v3`, then
 writes the conditional analysis to `results_paper_tier1_v3/analysis`. Its log is
-`cache/paper_tier1_v3.log`. To resume an interrupted workflow:
+`cache/paper_tier1_v3.log` (workflow restarts: `cache/paper_tier1_v3.workflow.log`).
+To resume an interrupted workflow:
 
 ```bash
 python run_magician.py --configfile config/paper_tier1_v3.yaml --cores 16 --scheduler greedy
