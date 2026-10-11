@@ -2,7 +2,9 @@ channels: [conda-forge, bioconda]
 dependencies:
   - python=3.11.13
   - snakemake-minimal=9.11.2
+  - jsonschema>=4.18
   - conda=25.7.0
+  - matplotlib>=3.9,<4
   - numpy=1.26.4
   - pandas=2.2.3
   - pyyaml=6.0.2

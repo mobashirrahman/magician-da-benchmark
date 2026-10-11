@@ -133,7 +133,16 @@ To resume an interrupted workflow:
 ```bash
 python run_magician.py --configfile config/paper_tier1_v3.yaml --cores 16 --scheduler greedy
 python tools/paper_analysis.py --tier1 results_paper_tier1_v3/benchmark --out results_paper_tier1_v3/analysis
+python tools/readme_report.py            # refresh the measured README tables and figures
+python tools/readme_report.py --check    # fail if README.md or its figures are stale
 ```
+
+The README's measured section is generated from these outputs, so it cannot drift from
+the evidence. `tools/readme_report.py` rewrites the block between its `BEGIN/END
+GENERATED` markers and re-renders the five figures into `docs/figures/tier1_v3/`; the
+superseded pilot section is hand-written because those runs were deleted. `--check` is
+the gate, and `tests/test_readme_report.py` asserts the same invariant whenever a
+completed run is present on the machine.
 
 Each bundle retains case-level generator records, full condition metadata, the
 donor table's checksum, source hashes, a source-code snapshot and the git revision.
